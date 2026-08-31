@@ -2,7 +2,9 @@
 name: Steer draft review
 description: >-
   Use when starting, reviewing, revising, or finishing a draft on the Steer
-  desk. The live review page is the only review surface. Never attach HTML.
+  desk. The live review page is the only review surface. If the catalog or page
+  is missing, run Steer onboarding first (that installs the stock desk). Never
+  attach HTML.
 ---
 # Steer draft review
 
@@ -10,7 +12,7 @@ This is the central loop for every draft on the Steer desk, not a special case.
 
 Steer is a rewrite desk, not a writer. The human (or the dropping agent) stays the author. Marks are the spec. Ready is not publish.
 
-If Save does not wake Steer, or this is a fresh Steer, run Steer onboarding first. Do not invent a poll.
+If Save does not wake Steer, the catalog is missing, the review server is missing, or this is a fresh Steer, run [Steer onboarding](sand-workflow:steer-onboarding) first. That installs the stock desk from `https://github.com/GlobalTC/steer` when needed, starts the page, and wires Save. Do not invent a poll. Do not skip it.
 
 ## Surfaces
 
@@ -20,14 +22,15 @@ If Save does not wake Steer, or this is a fresh Steer, run Steer onboarding firs
 - **Optional Tailscale Serve** is a supported feature, not a dependency. If this computer is on a tailnet, publish the desk tailnet-only with `tailscale serve --bg --set-path=/steer http://127.0.0.1:8766`. That appends `/steer`; it does not replace other paths. Operators may then use `https://<node-magicdns>/steer/`. Never Funnel. Never `tailscale serve reset`. Never hardcode a MagicDNS hostname as the product URL.
 - **Save** writes the asset and POSTs the webhook so Steer wakes. The open tab live-updates when the rewrite lands, unless it has unsaved edits.
 - Do **not** attach an `.html` file in chat. Do **not** paste the full draft into chat when the page will do.
-- Do **not** touch another product's catalog, review port, or webhook env.
+- Do **not** write another product's catalog, port, or webhook env.
 
 ## Start a draft
 
-1. Write the markdown to the Steer catalog asset. Register it in `index.json` (`status: draft`, `text_status: full`).
-2. Point the review page at that asset (`review/current.json`).
-3. Confirm the review page answers (`curl -sS -m 2 http://127.0.0.1:8766/steer/`). If it does not, start the review server so port 8766 is listening. Do not send a spinning link.
-4. Send the localhost review URL, not a file. If Serve `/steer` is configured, probe the tailnet URL too and you MAY also send that as a convenience for operators on the tailnet. One sentence on what to do: mark up, then Save. Do not require Tailscale.
+1. If `/workspace/steer-catalog` or `review/server.py` is missing, or `http://127.0.0.1:8766/steer/` does not answer, run [Steer onboarding](sand-workflow:steer-onboarding) and stop until the page is up.
+2. Write the markdown to the Steer catalog asset. Register it in `index.json` (`status: draft`, `text_status: full`).
+3. Point the review page at that asset (`review/current.json`).
+4. Confirm the review page answers (`curl -sS -m 2 http://127.0.0.1:8766/steer/`). If it does not, start `python3 /workspace/steer-catalog/start.py` so port 8766 is listening. Do not send a spinning link.
+5. Send the localhost review URL, not a file. If Serve `/steer` is configured, probe the tailnet URL too and you MAY also send that as a convenience for operators on the tailnet. One sentence on what to do: mark up, then Save. Do not require Tailscale.
 
 ## While it is in review
 
@@ -54,7 +57,7 @@ Match the source document. Do not impose a house style. Do not write as a partic
 ## Never
 
 - Become the author. Do not draft original essays on this desk unless asked to load someone else's text.
-- Ship, redesign, or maintain the review app unless the human explicitly asks. The desk runs the loop; it is not the product-engineering chat.
+- Redesign, restyle, or rewrite the review app. If the desk is missing, install the stock copy from the product repo via onboarding. That is first-run, not product-engineering chat.
 - Minute-poll, keepalive cron, or a webhook key form on the review page.
 - Name a specific person in the save-ping prompt.
 - Funnel the review page, or run `tailscale serve reset`.
