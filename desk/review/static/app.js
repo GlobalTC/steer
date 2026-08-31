@@ -358,6 +358,7 @@
     }
     if (!hits.length && trimmed) {
       var visNorm = idx.vis.replace(/[ \t]+/g, " ");
+      // Fall through: try original paragraph-local search below via context only.
       hits = findUnused(idx.vis, idx.used, trimmed.replace(/\n/g, "\n\n"));
       if (hits.length) needle = trimmed.replace(/\n/g, "\n\n");
     }
