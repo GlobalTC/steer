@@ -669,3 +669,115 @@
     var block = node.closest("p, h1, h2, h3, h4, li, blockquote");
     return block ? block.textContent : "";
   }
+
+  function considerSelection(ev) {
+    if (state.mode !== "suggesting") return;
+    if (els.article.hidden) return;
+    if (ev && ev.target) {
+      if (els.popover.contains(ev.target)) return;
+      if (els.drawer && els.drawer.contains(ev.target)) return;
+      if (els.toolbar && els.toolbar.contains(ev.target)) return;
+      if (ev.target.closest && ev.target.closest(".tour-coach, .learn-banner")) return;
+    }
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) {
+      if (!els.popover.hidden) return;
+      hidePopover();
+      return;
+    }
+    var range = sel.getRangeAt(0);
+    if (!els.article.contains(range.commonAncestorContainer)) {
+      if (!els.popover.hidden) return;
+      hidePopover();
+      return;
+    }
+    var text = sel.toString();
+    if (!text || !text.trim()) {
+      if (!els.popover.hidden) return;
+      hidePopover();
+      return;
+    }
+    var mapped = mapSelection(text, state.markdown, selectionContext(range));
+    if (mapped.error) {
+      hidePopover();
+      toast(mapped.error, true);
+      return;
+    }
+    state.popRange = mapped;
+    if (!state.popKind) {
+      els.popoverForm.hidden = true;
+      els.popoverActions.hidden = false;
+    }
+    var rect = range.getBoundingClientRect();
+    var x = rect.left;
+    var y = rect.bottom + 8;
+    if (y + 120 > window.innerHeight) y = Math.max(8, rect.top - 56);
+    placePopover(x, y);
+  }
+
+  function scheduleSelection(ev) {
+    clearTimeout(scheduleSelection._t);
+    scheduleSelection._t = setTimeout(function () {
+      considerSelection(ev);
+    }, 80);
+  }
+
+  function openPopForm(kind) {
+    state.popKind = kind;
+    els.popoverActions.hidden = true;
+    els.popoverForm.hidden = false;
+    if (kind === "comment") {
+      els.popoverInput.placeholder = "Comment";
+      els.popoverInput.value = "";
+    } else {
+      els.popoverInput.placeholder = "Replacement text";
+      els.popoverInput.value = state.popRange ? state.popRange.text : "";
+    }
+    els.popoverInput.focus();
+  }
+
+  function applySuggestion(ev) {
+    ev.preventDefault();
+    if (!state.popRange || !state.popKind) return;
+    var note = els.popoverInput.value;
+    if (state.popKind === "comment" && !note.trim()) {
+      toast("Write a comment first.", true);
+      return;
+    }
+    if (state.popKind === "replace" && note === state.popRange.text) {
+      toast("Replacement is the same as the original.", true);
+      return;
+    }
+    var md = state.markdown;
+    var chunk = md.slice(state.popRange.start, state.popRange.end);
+    if (chunk !== state.popRange.text) {
+      toast("The source moved. Select the phrase again.", true);
+      hidePopover();
+      return;
+    }
+    var stamp = isoNow();
+    var wrapped;
+    if (state.popKind === "comment") {
+      var cid = nextId(md, "c");
+      wrapped = "{==" + chunk + "==}{>>" + note.trim() + "<<}{id=\"" + cid + "\" by=\"" + AUTHOR + "\" at=\"" + stamp + "\"}";
+    } else {
+      var sid = nextId(md, "s");
+      wrapped = "{~~" + chunk + "~>" + note + "~~}{id=\"" + sid + "\" by=\"" + AUTHOR + "\" at=\"" + stamp + "\"}";
+    }
+    state.markdown = md.slice(0, state.popRange.start) + wrapped + md.slice(state.popRange.end);
+    setDirty(state.markdown !== state.savedMarkdown);
+    paintRendered();
+    renderDrawer();
+    hidePopover();
+    window.getSelection().removeAllRanges();
+  }
+
+  function jumpTo(id) {
+    if (!id) return;
+    if (state.mode === "editing") setMode("suggesting");
+    var target = els.article.querySelector('[data-cm-id="' + id + '"]');
+    if (!target) return;
+    target.classList.add("cm-focus");
+    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    setTimeout(function () { target.classList.remove("cm-focus"); }, 1600);
+  }
