@@ -781,3 +781,75 @@
     target.scrollIntoView({ block: "center", behavior: "smooth" });
     setTimeout(function () { target.classList.remove("cm-focus"); }, 1600);
   }
+
+  async function save() {
+    if (state.mode === "editing") state.markdown = els.editor.value;
+    if (isIdle()) return;
+    if (isLearn()) {
+      state.savedMarkdown = state.markdown;
+      state.savedAt = isoNow();
+      setDirty(false);
+      toast("Tutorial: not written to the catalog");
+      return;
+    }
+    var comments = extractMarks(state.markdown);
+    els.saveBtn.disabled = true;
+    try {
+      var res = await fetch("/steer/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          markdown: state.markdown,
+          mode: state.mode,
+          comments: comments
+        })
+      });
+      var data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Save failed");
+      state.savedMarkdown = state.markdown;
+      state.savedAt = data.saved_at;
+      state.generation = data.generation;
+      state.productionReady = false;
+      if (data.asset_mtime) state.assetMtime = data.asset_mtime;
+      setDirty(false);
+      toast("Saved");
+    } catch (err) {
+      toast(err.message || "Save failed", true);
+    } finally {
+      els.saveBtn.disabled = isIdle();
+    }
+  }
+
+  function openReadyModal() {
+    if (isIdle()) return;
+    if (state.dirty || !state.savedAt) {
+      els.modalNote.hidden = false;
+      els.modalNote.textContent = "Save first. Ready for production flags the last saved draft.";
+      els.modalConfirm.disabled = true;
+    } else {
+      els.modalNote.hidden = true;
+      els.modalConfirm.disabled = false;
+    }
+    els.modal.hidden = false;
+  }
+
+  async function confirmReady() {
+    if (isLearn()) {
+      state.productionReady = true;
+      updateStatus();
+      els.modal.hidden = true;
+      toast("Tutorial: ready not sent");
+      return;
+    }
+    try {
+      var res = await fetch("/steer/api/ready", { method: "POST" });
+      var data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Could not mark ready");
+      state.productionReady = true;
+      updateStatus();
+      els.modal.hidden = true;
+      toast("Marked ready for production");
+    } catch (err) {
+      toast(err.message || "Could not mark ready", true);
+    }
+  }
