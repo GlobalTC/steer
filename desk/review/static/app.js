@@ -390,3 +390,133 @@
       text: src.slice(expanded[0], expanded[1])
     };
   }
+
+  function currentMarkdown() {
+    if (state.mode === "editing") return els.editor.value;
+    return state.markdown;
+  }
+
+  function setDirty(value) {
+    state.dirty = value;
+    updateStatus();
+  }
+
+  function isIdle() {
+    return !!state.idle && !isLearn();
+  }
+
+  function catalogShouldShow() {
+    if (isLearn()) return false;
+    if (state.mode !== "viewing") return false;
+    if (state.idle) return true;
+    return !!state.catalogOpen;
+  }
+
+  function syncCatalogPanel() {
+    var show = catalogShouldShow();
+    if (els.catalogPanel) els.catalogPanel.hidden = !show;
+    if (els.catalogToggle) {
+      els.catalogToggle.setAttribute("aria-expanded", show ? "true" : "false");
+      els.catalogToggle.classList.toggle("is-open", show && !state.idle);
+    }
+    if (els.article && state.mode === "viewing") {
+      els.article.hidden = show;
+    }
+  }
+
+  var catalogAssets = [];
+
+  function loadCatalog() {
+    if (isLearn()) return Promise.resolve();
+    return fetch("/steer/api/catalog")
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        catalogAssets = data.assets || [];
+        renderCatalog();
+      })
+      .catch(function () {
+        renderCatalog();
+      });
+  }
+
+  function renderCatalog() {
+    if (!els.catalogList) return;
+    var q = ((els.catalogSearch && els.catalogSearch.value) || "").trim().toLowerCase();
+    var assets = catalogAssets || [];
+    var matches = assets.filter(function (a) {
+      if (!q) return true;
+      var tags = Array.isArray(a.tags) ? a.tags.join(" ") : "";
+      var hay = [a.title || "", a.dek || "", a.id || "", tags].join(" ").toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+    els.catalogList.innerHTML = "";
+    if (!assets.length) {
+      var empty = document.createElement("p");
+      empty.className = "catalog-empty";
+      empty.textContent = "No drafts in the catalog yet.";
+      els.catalogList.appendChild(empty);
+      return;
+    }
+    if (!matches.length) {
+      var none = document.createElement("p");
+      none.className = "catalog-empty";
+      none.textContent = "No drafts match.";
+      els.catalogList.appendChild(none);
+      return;
+    }
+    matches.forEach(function (a) {
+      var row = document.createElement("button");
+      row.type = "button";
+      row.className = "catalog-row";
+      row.setAttribute("role", "listitem");
+      var title = document.createElement("div");
+      title.className = "catalog-row-title";
+      title.textContent = a.title || a.id || "Draft";
+      row.appendChild(title);
+      if (a.dek) {
+        var dek = document.createElement("p");
+        dek.className = "catalog-row-dek";
+        dek.textContent = a.dek;
+        row.appendChild(dek);
+      }
+      row.addEventListener("click", function () {
+        selectCatalogAsset(a.id);
+      });
+      els.catalogList.appendChild(row);
+    });
+  }
+
+  async function selectCatalogAsset(id) {
+    if (!id || isLearn()) return;
+    try {
+      var res = await fetch("/steer/api/current", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: id })
+      });
+      var data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Could not load that draft");
+      state.catalogOpen = false;
+      applyDoc(data, true);
+    } catch (err) {
+      toast(err.message || "Could not load that draft", true);
+    }
+  }
+
+  function updateStatus() {
+    var idle = isIdle();
+    var parts = [];
+    if (idle) parts.push("Nothing on the desk");
+    else if (state.savedAt) parts.push("Saved " + formatSaved(state.savedAt));
+    else parts.push("Not saved yet");
+    if (!idle) {
+      if (state.dirty) parts.push("Unsaved changes");
+      else if (state.savedAt) parts.push("All changes saved");
+      if (state.productionReady) parts.push("Production ready");
+    }
+    els.status.textContent = parts.join(" · ");
+    els.status.classList.toggle("is-dirty", !idle && state.dirty);
+    els.readyBtn.disabled = idle || !state.savedAt || state.dirty;
+    els.saveBtn.disabled = idle;
+    els.readyBtn.textContent = state.productionReady ? "Production ready" : "Ready for production";
+  }
