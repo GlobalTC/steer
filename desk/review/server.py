@@ -393,3 +393,36 @@ class Handler(BaseHTTPRequestHandler):
         payload = {"ok": True, "id": asset_id, "asset": rel}
         payload.update(snap)
         self._send_json(200, payload)
+
+    def _api_events(self) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.end_headers()
+        last = None
+        try:
+            while True:
+                snap = doc_snapshot()
+                stamp = (
+                    snap.get("asset_mtime"),
+                    snap.get("generation"),
+                    snap.get("processed_generation"),
+                    snap.get("id"),
+                )
+                if stamp != last:
+                    last = stamp
+                    light = {
+                        "generation": snap.get("generation"),
+                        "saved_at": snap.get("saved_at"),
+                        "asset_mtime": snap.get("asset_mtime"),
+                        "processed_generation": snap.get("processed_generation"),
+                        "production_ready": snap.get("production_ready"),
+                        "id": snap.get("id"),
+                    }
+                    chunk = "data: %s\n\n" % json.dumps(light, ensure_ascii=False)
+                    self.wfile.write(chunk.encode("utf-8"))
+                    self.wfile.flush()
+                time.sleep(0.6)
+        except (BrokenPipeError, ConnectionResetError, TimeoutError, OSError):
+            return
