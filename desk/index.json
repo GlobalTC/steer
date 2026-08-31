@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "owner": "Steer",
+  "path": "/workspace/steer-catalog",
+  "updated": "2026-08-31",
+  "assets": [
+    {
+      "id": "steer-slop-sample",
+      "title": "Weekly Status: Synergizing Our Q3 Outcomes",
+      "dek": "Steer demo sample on the desk. Marked, not published.",
+      "date": "2026-08-31",
+      "status": "draft",
+      "text_status": "full",
+      "body": "assets/steer-slop-sample.md",
+      "tags": [
+        "steer",
+        "demo",
+        "slop"
+      ],
+      "kind": "steer-test"
+    },
+    {
+      "id": "empty-desk",
+      "title": "Empty desk",
+      "dek": "Idle parking document so the review server has something to serve.",
+      "date": "2026-08-31",
+      "status": "idle",
+      "text_status": "full",
+      "body": "assets/empty-desk.md",
+      "kind": "desk"
+    }
+  ]
+}
