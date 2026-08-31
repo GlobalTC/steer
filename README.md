@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/steer-logo.svg" alt="STEER" width="480">
+</p>
+
 # STEER
 
 **Steer AI drafts with marks, not chat.**
@@ -7,6 +11,11 @@ This repository is the **Grok Bot** share recipe for STEER: the same five slots 
 It is not a Cursor plugin, not Claude Code, and not Cowork. Those get sibling repos later.
 
 Steer is a rewrite desk. Everyday workers (and other Grok Bot agents) mark a draft, Save, and get a rewrite that follows the marks. Not a personal writer. Not a publisher.
+
+## Brand
+
+- Wordmark: [`assets/steer-logo.svg`](assets/steer-logo.svg)
+- Square mark: [`assets/steer-mark.svg`](assets/steer-mark.svg)
 
 ## Packer slots
 
@@ -20,7 +29,7 @@ Steer is a rewrite desk. Everyday workers (and other Grok Bot agents) mark a dra
 
 [`share.json`](share.json) is the same payload in one file.
 
-The official packer does **not** ship a review server, UI, catalog, or logos. Recipients get this recipe. The live desk on an installer’s computer is a separate first-run concern.
+The official packer does **not** ship a review server, UI, or catalog. Recipients get this recipe plus the brand marks in `assets/`. The live desk on an installer’s computer is a separate first-run concern.
 
 ## Product path
 
