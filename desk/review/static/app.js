@@ -161,3 +161,74 @@
     });
     return items;
   }
+
+  function protectCritic(md) {
+    var tokens = [];
+    function store(html) {
+      var key = "@@CM" + tokens.length + "@@";
+      tokens.push({ key: key, html: html });
+      return key;
+    }
+    function flag(id, kind) {
+      if (!id) return "";
+      var label = String(id).replace(/^[cs]/, "");
+      return '<button type="button" class="cm-flag" data-jump="' +
+        escapeHtml(id) + '" title="' + escapeHtml(kind) + '">' +
+        escapeHtml(label) + "</button>";
+    }
+    function wrapId(inner, id) {
+      if (!id) return inner;
+      return '<span data-cm-id="' + escapeHtml(id) + '">' + inner + "</span>";
+    }
+
+    var out = md;
+    out = out.replace(
+      /\{==([\s\S]*?)==\}\{>>([\s\S]*?)<<\}(?:\{id="([^"]*)"\s+by="([^"]*)"\s+at="([^"]*)"\})?/g,
+      function (_, text, comment, id) {
+        var html = wrapId(
+          '<mark class="cm-hl">' + parseInline(text) + "</mark>" + flag(id, comment || "Comment"),
+          id
+        );
+        return store(html);
+      }
+    );
+    out = out.replace(
+      /\{~~([\s\S]*?)~>([\s\S]*?)~~\}(?:\{id="([^"]*)"\s+by="([^"]*)"\s+at="([^"]*)"\})?/g,
+      function (_, oldT, newT, id) {
+        var html = wrapId(
+          '<del class="cm-del">' + parseInline(oldT) + "</del>" +
+          '<ins class="cm-ins">' + parseInline(newT) + "</ins>" +
+          flag(id, "Replace"),
+          id
+        );
+        return store(html);
+      }
+    );
+    out = out.replace(
+      /\{>>([\s\S]*?)<<\}(?:\{id="([^"]*)"\s+by="([^"]*)"\s+at="([^"]*)"\})?/g,
+      function (_, comment, id) {
+        var html = wrapId(flag(id || "c", comment || "Comment"), id);
+        return store(html);
+      }
+    );
+    out = out.replace(/\{\+\+([\s\S]*?)\+\+\}/g, function (_, text) {
+      return store('<ins class="cm-ins">' + parseInline(text) + "</ins>");
+    });
+    out = out.replace(/\{--([\s\S]*?)--\}/g, function (_, text) {
+      return store('<del class="cm-del">' + parseInline(text) + "</del>");
+    });
+    out = out.replace(/\{==([\s\S]*?)==\}/g, function (_, text) {
+      return store('<mark class="cm-hl">' + parseInline(text) + "</mark>");
+    });
+    return { text: out, tokens: tokens };
+  }
+
+  function renderArticle(md) {
+    var protectedMd = protectCritic(md);
+    var html = parseMarkdown(protectedMd.text);
+    for (var i = 0; i < protectedMd.tokens.length; i++) {
+      var tok = protectedMd.tokens[i];
+      html = html.split(tok.key).join(tok.html);
+    }
+    return html;
+  }
