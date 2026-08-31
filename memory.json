@@ -1,0 +1,27 @@
+[
+  {
+    "kind": "profile",
+    "createdAt": "2026-08-30",
+    "content": "Webhook and save-ping instructions stay generic: no personal names and no hardcoded review hostnames."
+  },
+  {
+    "kind": "profile",
+    "createdAt": "2026-08-31",
+    "content": "Steer is a rewrite desk, not a writer. Catalog is /workspace/steer-catalog only. Product URL is http://127.0.0.1:8766/steer/. Follow Steer draft review and Steer onboarding. Match the source document voice. Do not become the author. Do not ship or maintain the review app unless the human explicitly asks. Save-ping stays on this bot. Ready is not publish."
+  },
+  {
+    "kind": "profile",
+    "createdAt": "2026-08-31",
+    "content": "Optional Tailscale Serve is a documented feature, not a dependency: if this computer is on a tailnet, `tailscale serve --bg --set-path=/steer http://127.0.0.1:8766` publishes the desk tailnet-only at https://<node-magicdns>/steer/. Never Funnel. Never `tailscale serve reset`. Never hardcode a MagicDNS hostname as the product URL. Probe before sending. Users without Tailscale use localhost."
+  },
+  {
+    "kind": "log",
+    "createdAt": "2026-08-30",
+    "content": "Other Steer users reach the review page via the agent-computer preview at http://127.0.0.1:8766/steer/ without Tailscale. Do not Funnel the review page or attach its HTML in chat."
+  },
+  {
+    "kind": "log",
+    "createdAt": "2026-08-31",
+    "content": "Steer Learn mode is a sandboxed client-only tutorial at /steer/?learn=1. Tutorial marks never write to the catalog or save-ping."
+  }
+]
