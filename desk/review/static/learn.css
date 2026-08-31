@@ -1,0 +1,107 @@
+/* Learn mode only. Never loaded as a behavior change unless body.is-learn. */
+
+body.is-learn {
+  --tour: #d52e21;
+}
+
+.learn-banner {
+  display: none;
+}
+body.is-learn .learn-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 1rem;
+  background: #d52e21;
+  color: #fff;
+  font: 600 0.75rem/1.3 var(--sans);
+  letter-spacing: 0.02em;
+}
+
+.learn-banner a {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tour-coach {
+  display: none;
+}
+body.is-learn .tour-coach {
+  display: block;
+  position: fixed;
+  z-index: 50;
+  right: 1rem;
+  bottom: 1rem;
+  width: min(22rem, calc(100vw - 2rem));
+  background: #0a0a0a;
+  color: #f3f3f3;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  padding: 0.85rem 0.95rem 0.75rem;
+  font-family: var(--sans);
+}
+
+.tour-kicker {
+  margin: 0 0 0.25rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d52e21;
+  font-weight: 700;
+}
+
+.tour-coach h2 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.tour-coach p {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #c8c8c8;
+}
+
+.tour-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tour-nav .btn {
+  background: #141414;
+  border-color: #2a2a2a;
+  color: #f0f0f0;
+}
+.tour-nav .btn-primary {
+  background: #d52e21;
+  border-color: #d52e21;
+  color: #fff;
+}
+
+.tour-step {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: #8f8f8f;
+}
+
+body.is-learn .tour-spot {
+  box-shadow: 0 0 0 2px #d52e21, 0 0 0 6px rgba(213, 46, 33, 0.25);
+  border-radius: 10px;
+}
+
+.learn-link {
+  color: #9a9a9a;
+  font: 600 0.72rem/1 var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid #2a2a2a;
+  border-radius: 999px;
+}
+.learn-link:hover { color: #fff; border-color: #4a4a4a; }
+body.is-learn .learn-link { display: none; }

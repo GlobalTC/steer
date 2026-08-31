@@ -1,0 +1,9 @@
+# Live webhook secret. Ship the example only.
+desk/review/.webhook.env
+# Save records are local runtime, not product source.
+desk/review/saves/*.json
+__pycache__/
+*.pyc
+*.pyo
+server.log
+.DS_Store
