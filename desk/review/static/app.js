@@ -232,3 +232,161 @@
     }
     return html;
   }
+
+  function buildVisibleIndex(src) {
+    var vis = [];
+    var map = [];
+    var used = [];
+    var i = 0;
+    var cmDepth = 0;
+    var n = src.length;
+
+    function starts(s) {
+      return src.substr(i, s.length) === s;
+    }
+
+    while (i < n) {
+      if (starts("{id=")) {
+        var brace = src.indexOf("}", i);
+        if (brace !== -1) {
+          i = brace + 1;
+          continue;
+        }
+      }
+      if (starts("{>>")) {
+        var cend = src.indexOf("<<}", i);
+        if (cend !== -1) {
+          i = cend + 3;
+          continue;
+        }
+      }
+      if (starts("{==") || starts("{++") || starts("{--") || starts("{~~")) {
+        cmDepth += 1;
+        i += 3;
+        continue;
+      }
+      if (starts("==}") || starts("++}") || starts("--}") || starts("~~}")) {
+        cmDepth = Math.max(0, cmDepth - 1);
+        i += 3;
+        continue;
+      }
+      if (starts("~>") && cmDepth > 0) {
+        i += 2;
+        continue;
+      }
+      if ((i === 0 || src.charAt(i - 1) === "\n") && src.charAt(i) === "#") {
+        while (i < n && src.charAt(i) === "#") i += 1;
+        if (src.charAt(i) === " ") i += 1;
+        continue;
+      }
+      if (src.charAt(i) === "\\" && i + 1 < n) {
+        i += 1;
+        vis.push(src.charAt(i));
+        map.push(i);
+        used.push(cmDepth > 0);
+        i += 1;
+        continue;
+      }
+      if (starts("**") || starts("__")) {
+        i += 2;
+        continue;
+      }
+      var ch = src.charAt(i);
+      if (ch === "*" || ch === "_" || ch === "`") {
+        i += 1;
+        continue;
+      }
+      vis.push(ch);
+      map.push(i);
+      used.push(cmDepth > 0);
+      i += 1;
+    }
+    return { vis: vis.join(""), map: map, used: used };
+  }
+
+  function findUnused(vis, used, needle) {
+    var hits = [];
+    if (!needle) return hits;
+    var pos = 0;
+    while (pos <= vis.length - needle.length) {
+      var at = vis.indexOf(needle, pos);
+      if (at < 0) break;
+      var blocked = false;
+      for (var k = 0; k < needle.length; k++) {
+        if (used[at + k]) {
+          blocked = true;
+          break;
+        }
+      }
+      if (!blocked) hits.push(at);
+      pos = at + 1;
+    }
+    return hits;
+  }
+
+  function visBlockRange(vis, index) {
+    var a = vis.lastIndexOf("\n\n", index);
+    a = a === -1 ? 0 : a + 2;
+    var b = vis.indexOf("\n\n", index);
+    b = b === -1 ? vis.length : b;
+    return [a, b];
+  }
+
+  function expandMarkup(src, start, end) {
+    var pairs = ["**", "__", "*", "_", "`"];
+    for (var i = 0; i < pairs.length; i++) {
+      var w = pairs[i];
+      if (start >= w.length && src.slice(start - w.length, start) === w && src.slice(start, end).indexOf(w) !== -1) {
+        start -= w.length;
+      }
+      if (src.slice(end, end + w.length) === w && src.slice(start, end).indexOf(w) !== -1) {
+        end += w.length;
+      }
+    }
+    return [start, end];
+  }
+
+  function mapSelection(selected, src, context) {
+    var idx = buildVisibleIndex(src);
+    var raw = selected;
+    var trimmed = selected.replace(/\s+/g, " ").trim();
+    var needle = raw;
+    var hits = findUnused(idx.vis, idx.used, raw);
+    if (!hits.length && trimmed && trimmed !== raw) {
+      needle = trimmed;
+      hits = findUnused(idx.vis, idx.used, trimmed);
+    }
+    if (!hits.length && trimmed) {
+      var visNorm = idx.vis.replace(/[ \t]+/g, " ");
+      // Fall through: try original paragraph-local search below via context only.
+      hits = findUnused(idx.vis, idx.used, trimmed.replace(/\n/g, "\n\n"));
+      if (hits.length) needle = trimmed.replace(/\n/g, "\n\n");
+    }
+    if (!hits.length) {
+      return {
+        error: "Could not map that selection back to the source. Try a unique phrase inside one paragraph, and avoid text that is already marked."
+      };
+    }
+    if (hits.length > 1 && context) {
+      var ctx = context.replace(/\s+/g, " ").trim();
+      var filtered = hits.filter(function (at) {
+        var range = visBlockRange(idx.vis, at);
+        var block = idx.vis.slice(range[0], range[1]).replace(/\s+/g, " ").trim();
+        return block === ctx || block.indexOf(ctx) !== -1 || (ctx && ctx.indexOf(block) !== -1);
+      });
+      if (filtered.length) hits = filtered;
+    }
+    var at = hits[0];
+    var srcStart = idx.map[at];
+    var lastVis = at + needle.length - 1;
+    if (lastVis >= idx.map.length) {
+      return { error: "Could not map that selection back to the source." };
+    }
+    var srcEnd = idx.map[lastVis] + 1;
+    var expanded = expandMarkup(src, srcStart, srcEnd);
+    return {
+      start: expanded[0],
+      end: expanded[1],
+      text: src.slice(expanded[0], expanded[1])
+    };
+  }
