@@ -358,7 +358,6 @@
     }
     if (!hits.length && trimmed) {
       var visNorm = idx.vis.replace(/[ \t]+/g, " ");
-      // Fall through: try original paragraph-local search below via context only.
       hits = findUnused(idx.vis, idx.used, trimmed.replace(/\n/g, "\n\n"));
       if (hits.length) needle = trimmed.replace(/\n/g, "\n\n");
     }
@@ -550,4 +549,95 @@
     setDirty(next !== state.savedMarkdown);
     paintRendered();
     renderDrawer();
+  }
+
+  function renderDrawer() {
+    var marks = extractMarks(currentMarkdown());
+    els.markList.innerHTML = "";
+    if (!marks.length) {
+      els.drawer.hidden = state.mode !== "suggesting";
+      els.workspace.classList.toggle("has-drawer", !els.drawer.hidden);
+      els.drawerCount.textContent = "No comments or replacements yet";
+      var empty = document.createElement("p");
+      empty.className = "mark-empty";
+      empty.textContent = state.mode === "suggesting"
+        ? "Select a phrase in the article to comment or replace."
+        : "Nothing marked.";
+      els.markList.appendChild(empty);
+      return;
+    }
+    els.drawer.hidden = false;
+    els.workspace.classList.toggle("has-drawer", true);
+    els.drawerCount.textContent = marks.length + (marks.length === 1 ? " mark" : " marks");
+    marks.forEach(function (mark) {
+      var li = document.createElement("li");
+      li.className = "mark-row";
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "mark-item";
+      btn.dataset.jump = mark.id;
+      var head = document.createElement("div");
+      head.className = "mark-head";
+      var kind = document.createElement("span");
+      kind.className = "mark-kind";
+      kind.textContent = (mark.type === "replace" ? "Replace" : "Comment") + (mark.id ? " · " + mark.id : "");
+      head.appendChild(kind);
+      var body = document.createElement("div");
+      body.className = "mark-body";
+      body.textContent = mark.type === "replace" ? mark.excerpt + " → " + mark.body : mark.body;
+      btn.appendChild(head);
+      btn.appendChild(body);
+      if (mark.excerpt && mark.type === "comment") {
+        var ex = document.createElement("div");
+        ex.className = "mark-excerpt";
+        ex.textContent = mark.excerpt.replace(/\s+/g, " ").slice(0, 140);
+        btn.appendChild(ex);
+      }
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "mark-delete";
+      del.textContent = "Delete";
+      del.setAttribute("aria-label", "Delete " + (mark.id || "mark"));
+      del.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        removeMark(mark.id);
+      });
+      li.appendChild(btn);
+      li.appendChild(del);
+      els.markList.appendChild(li);
+    });
+  }
+
+  function paintRendered() {
+    var html = renderArticle(state.markdown);
+    els.article.innerHTML = html;
+    els.livePreview.innerHTML = html;
+  }
+
+  function setMode(mode) {
+    if (state.mode === "editing" && mode !== "editing") {
+      state.markdown = els.editor.value;
+    }
+    state.mode = mode;
+    if (mode !== "viewing") state.catalogOpen = false;
+    document.querySelectorAll(".mode").forEach(function (btn) {
+      var on = btn.getAttribute("data-mode") === mode;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    var editing = mode === "editing";
+    els.article.hidden = editing;
+    els.editLayout.hidden = !editing;
+    if (editing) {
+      els.editor.value = state.markdown;
+      els.livePreview.innerHTML = renderArticle(state.markdown);
+    } else {
+      paintRendered();
+    }
+    hidePopover();
+    els.article.classList.toggle("is-suggesting", mode === "suggesting");
+    renderDrawer();
+    updateStatus();
+    syncCatalogPanel();
   }
