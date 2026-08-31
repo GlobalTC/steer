@@ -2,7 +2,7 @@ STEER Copyright & License Template
 ==================================
 
 This file contains the standardized copyright and license boilerplate for the
-STEER Grok Bot recipe. Copy and paste the appropriate block below into the
+STEER desk and Grok Bot recipe. Copy and paste the appropriate block below into the
 header of every new or updated source file.
 
 Note: The Author line is an EXAMPLE. When adding a header to a file, the
@@ -13,7 +13,7 @@ Author field should name the actual author/contributor of that file.
 --------------------------------------------------------------------------------
 
 <!--
-Copyright 2026 Global Technologies Corporation
+Copyright 2026 832 Labs
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ limitations under the License.
 
 Author: <contributor>
 
-Copyright 2026 Global Technologies Corporation
+Copyright 2026 832 Labs
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -56,5 +56,5 @@ limitations under the License.
 3. Plain Copyright Line
 --------------------------------------------------------------------------------
 
-Copyright 2026 Global Technologies Corporation
+Copyright 2026 832 Labs
 Licensed under the Apache License, Version 2.0
