@@ -138,3 +138,99 @@ def find_asset(asset_id: str):
         if asset.get("id") == asset_id:
             return asset
     return None
+
+
+def is_parking_stub(asset: dict | None) -> bool:
+    if not isinstance(asset, dict):
+        return False
+    if asset.get("kind") == "desk":
+        return True
+    if asset.get("id") == "empty-desk":
+        return True
+    if asset.get("status") == "idle":
+        return True
+    return False
+
+
+def spec_is_idle(spec: dict) -> bool:
+    asset = find_asset(spec.get("id"))
+    if asset is not None:
+        return is_parking_stub(asset)
+    aid = spec.get("id") or ""
+    rel = spec.get("rel") or ""
+    return aid == "empty-desk" or Path(rel).stem == "empty-desk"
+
+
+def public_catalog_asset(asset: dict) -> dict:
+    return {
+        "id": asset.get("id"),
+        "title": asset.get("title"),
+        "dek": asset.get("dek"),
+        "date": asset.get("date"),
+        "status": asset.get("status"),
+        "tags": asset.get("tags") or [],
+        "kind": asset.get("kind"),
+        "body": asset.get("body"),
+    }
+
+
+def load_webhook_env() -> dict:
+    env = {}
+    if not WEBHOOK_ENV.is_file():
+        return env
+    for raw in WEBHOOK_ENV.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        env[key.strip()] = value.strip().strip('"').strip("'")
+    return env
+
+
+def webhook_configured() -> bool:
+    env = load_webhook_env()
+    return bool(env.get("WEBHOOK_URL") and env.get("WEBHOOK_KEY"))
+
+
+def ping_webhook(payload: dict) -> None:
+    env = load_webhook_env()
+    url = env.get("WEBHOOK_URL")
+    key = env.get("WEBHOOK_KEY")
+    header = env.get("WEBHOOK_HEADER") or "Authorization"
+    if not url or not key:
+        return
+    value = key
+    if header.lower() == "authorization" and not key.lower().startswith("bearer "):
+        value = "Bearer " + key
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = Request(url, data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    req.add_header(header, value)
+    try:
+        with urlopen(req, timeout=8) as resp:
+            resp.read()
+    except (URLError, TimeoutError, OSError) as exc:
+        sys.stderr.write("webhook ping failed: %s\n" % exc)
+
+
+def doc_snapshot() -> dict:
+    spec = current_spec()
+    latest = read_json(LATEST) or {}
+    processed = read_json(PROCESSED) or {}
+    markdown = read_asset()
+    current_id = spec.get("id")
+    same_asset = latest.get("asset_id") == current_id
+    return {
+        "markdown": markdown,
+        "title": title_from_markdown(markdown),
+        "saved_at": latest.get("saved_at") if same_asset else None,
+        "production_ready": bool(latest.get("production_ready", False)) if same_asset else False,
+        "generation": latest.get("generation", 0) if same_asset else 0,
+        "mode": latest.get("mode") if same_asset else None,
+        "comments": (latest.get("comments") or []) if same_asset else [],
+        "asset_mtime": asset_mtime(),
+        "processed_generation": processed.get("generation"),
+        "webhook_configured": webhook_configured(),
+        "id": current_id,
+        "idle": spec_is_idle(spec),
+    }
