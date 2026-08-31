@@ -426,3 +426,22 @@ class Handler(BaseHTTPRequestHandler):
                 time.sleep(0.6)
         except (BrokenPipeError, ConnectionResetError, TimeoutError, OSError):
             return
+
+    def _api_webhook_config(self) -> None:
+        body = self._read_json_body()
+        url = body.get("url") if isinstance(body.get("url"), str) else ""
+        key = body.get("key") if isinstance(body.get("key"), str) else ""
+        header = body.get("header") if isinstance(body.get("header"), str) else "Authorization"
+        url, key, header = url.strip(), key.strip(), (header or "Authorization").strip()
+        if not url or not key:
+            self._send_json(400, {"ok": False, "error": "url and key are required"})
+            return
+        text_env = (
+            "WEBHOOK_URL=%s\nWEBHOOK_KEY=%s\nWEBHOOK_HEADER=%s\n" % (url, key, header)
+        )
+        atomic_write_text(WEBHOOK_ENV, text_env)
+        try:
+            os.chmod(WEBHOOK_ENV, 0o600)
+        except OSError:
+            pass
+        self._send_json(200, {"ok": True, "configured": True})
