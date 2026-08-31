@@ -952,3 +952,124 @@
     };
     es.onerror = function () { /* browser will retry */ };
   }
+
+  function bind() {
+    els.toolbar = document.querySelector(".toolbar");
+    els.docTitle = $("doc-title");
+    els.status = $("status");
+    els.readyBtn = $("ready-btn");
+    els.saveBtn = $("save-btn");
+    els.workspace = $("workspace");
+    els.article = $("article");
+    els.editLayout = $("edit-layout");
+    els.editor = $("editor");
+    els.livePreview = $("live-preview");
+    els.drawer = $("drawer");
+    els.drawerCount = $("drawer-count");
+    els.markList = $("mark-list");
+    els.popover = $("popover");
+    els.popoverActions = $("popover-actions");
+    els.popoverForm = $("popover-form");
+    els.popoverInput = $("popover-input");
+    els.modal = $("modal");
+    els.modalNote = $("modal-note");
+    els.modalConfirm = $("modal-confirm");
+    els.toast = $("toast");
+    els.catalogPanel = $("catalog-panel");
+    els.catalogSearch = $("catalog-search");
+    els.catalogList = $("catalog-list");
+    els.catalogToggle = $("catalog-toggle");
+
+    document.querySelectorAll(".mode").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        setMode(btn.getAttribute("data-mode"));
+      });
+    });
+
+    els.saveBtn.addEventListener("click", save);
+    els.readyBtn.addEventListener("click", openReadyModal);
+    if (els.catalogToggle) {
+      els.catalogToggle.addEventListener("click", function () {
+        if (isLearn()) return;
+        if (state.idle) {
+          if (state.mode !== "viewing") setMode("viewing");
+          else syncCatalogPanel();
+          loadCatalog();
+          if (els.catalogSearch) els.catalogSearch.focus();
+          return;
+        }
+        state.catalogOpen = !state.catalogOpen;
+        if (state.catalogOpen && state.mode !== "viewing") setMode("viewing");
+        else syncCatalogPanel();
+        if (state.catalogOpen) {
+          loadCatalog();
+          if (els.catalogSearch) els.catalogSearch.focus();
+        }
+      });
+    }
+    if (els.catalogSearch) {
+      els.catalogSearch.addEventListener("input", renderCatalog);
+    }
+    $("modal-cancel").addEventListener("click", function () { els.modal.hidden = true; });
+    $("modal-confirm").addEventListener("click", confirmReady);
+    els.modal.addEventListener("click", function (ev) {
+      if (ev.target === els.modal) els.modal.hidden = true;
+    });
+    $("pop-comment").addEventListener("click", function () { openPopForm("comment"); });
+    $("pop-replace").addEventListener("click", function () { openPopForm("replace"); });
+    $("pop-cancel").addEventListener("click", hidePopover);
+    els.popoverForm.addEventListener("submit", applySuggestion);
+
+    els.editor.addEventListener("input", function () {
+      state.markdown = els.editor.value;
+      setDirty(state.markdown !== state.savedMarkdown);
+      clearTimeout(bind._prev);
+      bind._prev = setTimeout(function () {
+        els.livePreview.innerHTML = renderArticle(els.editor.value);
+      }, 160);
+    });
+
+
+    document.addEventListener("mouseup", considerSelection);
+    document.addEventListener("selectionchange", function () {
+      if (state.mode !== "suggesting") return;
+      scheduleSelection(null);
+    });
+    els.article.addEventListener("touchend", function (ev) {
+      if (state.mode !== "suggesting") return;
+      setTimeout(function () { considerSelection(ev); }, 340);
+    }, { passive: true });
+    els.article.addEventListener("contextmenu", function (ev) {
+      if (state.mode === "suggesting") ev.preventDefault();
+    });
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape") {
+        hidePopover();
+        els.modal.hidden = true;
+        if (state.catalogOpen) {
+          state.catalogOpen = false;
+          syncCatalogPanel();
+        }
+      }
+      if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "s") {
+        ev.preventDefault();
+        if (!isIdle()) save();
+      }
+    });
+
+    document.addEventListener("click", function (ev) {
+      var jump = ev.target.closest("[data-jump]");
+      if (jump) {
+        ev.preventDefault();
+        jumpTo(jump.getAttribute("data-jump"));
+      }
+    });
+  }
+
+  bind();
+  load(true).catch(function (err) {
+    toast(err.message || "Could not load the article", true);
+  });
+  if (!isLearn()) loadCatalog();
+  watchEvents();
+})();
