@@ -8,24 +8,36 @@
 
 This is the STEER solution: the review desk, the server, and the Grok Bot recipe that runs the rewrite loop. The thing in the video. Not a prompt with no page.
 
-## Run the desk
+## Grok Bot template
 
-On a Grok Bot computer:
+Import STEER as a Grok Bot. On first conversation the bot runs Steer onboarding:
+
+1. If `/workspace/steer-catalog` is missing, it pulls `desk/` from this repo (tarball, not a git clone).
+2. It starts the page at [http://127.0.0.1:8766/steer/](http://127.0.0.1:8766/steer/).
+3. It wires Save once (webhook URL + sender key via secret-request).
+
+The first open should be the slop sample. Mark it. Save. That is the product.
+
+You can also run the same install yourself:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/GlobalTC/steer/main/install-desk.sh | bash
+```
+
+Or, if you already have this repo:
 
 ```bash
 cp -R desk /workspace/steer-catalog
 python3 /workspace/steer-catalog/start.py
 ```
 
-Then open [http://127.0.0.1:8766/steer/](http://127.0.0.1:8766/steer/). Mark the draft. Save.
-
 Learn sandbox (does not write the catalog): [http://127.0.0.1:8766/steer/?learn=1](http://127.0.0.1:8766/steer/?learn=1)
 
 The catalog is the copy of record. Operating law: [`desk/CONSTITUTION.md`](desk/CONSTITUTION.md).
 
-## The bot
+## The bot recipe
 
-After the desk is up, import or recreate the Grok Bot from the recipe in this repo (profile, memory, skills, save-ping job text). Wire Save once with Steer onboarding. The bot rewrites; the page is where humans mark.
+The page is the product. The recipe is the rewrite loop that wakes on Save.
 
 | Slot | Path |
 | --- | --- |
@@ -35,7 +47,7 @@ After the desk is up, import or recreate the Grok Bot from the recipe in this re
 | Save-ping | [`routines/draft-review-save-ping.md`](routines/draft-review-save-ping.md) |
 | Plugins | [`plugins.json`](plugins.json) |
 
-[`share.json`](share.json) is those slots in one file. Grok Bot's packer still cannot ship the desk; that is why the desk lives in [`desk/`](desk/) in this repo instead of inside a template.
+[`share.json`](share.json) is those slots in one file. Grok Bot's packer still cannot ship the desk files; first-run reconstructs them from this repo.
 
 ## Optional Tailscale Serve
 

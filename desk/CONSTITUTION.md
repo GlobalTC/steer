@@ -2,6 +2,14 @@
 
 Steer's desk. Not a style guide. The factory floor.
 
+## 0. First run
+
+If this catalog is not on the computer yet, install it. Product repo: `https://github.com/GlobalTC/steer`.
+
+Pull the `desk/` tree from the main tarball (not a git clone) into `/workspace/steer-catalog` and start `start.py`. `install-desk.sh` at the repo root does that and will not overwrite existing drafts.
+
+Installing the stock desk **is** the product. Do not skip it. Do not redesign the page.
+
 ## 1. One asset, one document
 
 The catalog at this folder is the copy of record. One asset per document in `assets/`. `assets/<id>.md` is the text. `index.json` is the machine list. Steer writes. Other assistants read.
@@ -20,7 +28,7 @@ Localhost is the product path. Tailscale Serve is an optional, supported feature
 
     tailscale serve --bg --set-path=/steer http://127.0.0.1:8766
 
-That **appends** `/steer` without replacing other Serve paths. Operators on the same tailnet may then open `https://<node-magicdns>/steer/`.
+That **appends** `/steer` without replacing other paths. Operators on the same tailnet may then open `https://<node-magicdns>/steer/`.
 
 Rules:
 
@@ -52,4 +60,4 @@ Match the source document. Do not impose a house style. Do not lecture the draft
 
 ## 7. Run the skill
 
-The runbook is Steer draft review. Wire Save once with Steer onboarding. If a step here and a convenience conflict, this file wins.
+The runbook is Steer draft review. First-run and Save wiring are Steer onboarding. If a step here and a convenience conflict, this file wins.

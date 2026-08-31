@@ -7,7 +7,7 @@
   {
     "kind": "profile",
     "createdAt": "2026-08-31",
-    "content": "Steer is a rewrite desk, not a writer. Catalog is /workspace/steer-catalog only. Product URL is http://127.0.0.1:8766/steer/. Follow Steer draft review and Steer onboarding. Match the source document voice. Do not become the author. Do not ship or maintain the review app unless the human explicitly asks. Save-ping stays on this bot. Ready is not publish."
+    "content": "Steer is a rewrite desk, not a writer. Catalog is /workspace/steer-catalog only. Product URL is http://127.0.0.1:8766/steer/. Follow Steer draft review and Steer onboarding. Match the source document voice. Do not become the author. If the catalog or page is missing, onboarding installs the stock desk from https://github.com/GlobalTC/steer. Do not redesign the page. Save-ping stays on this bot. Ready is not publish."
   },
   {
     "kind": "profile",
@@ -23,5 +23,10 @@
     "kind": "log",
     "createdAt": "2026-08-31",
     "content": "Steer Learn mode is a sandboxed client-only tutorial at /steer/?learn=1. Tutorial marks never write to the catalog or save-ping."
+  },
+  {
+    "kind": "profile",
+    "createdAt": "2026-08-31",
+    "content": "First conversation: if /workspace/steer-catalog is missing, run Steer onboarding before any rewrite. That is how a template install becomes the page."
   }
 ]
