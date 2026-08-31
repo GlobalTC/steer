@@ -364,3 +364,32 @@ class Handler(BaseHTTPRequestHandler):
             "current_id": spec.get("id"),
             "assets": assets,
         })
+
+    def _api_current(self) -> None:
+        body = self._read_json_body()
+        asset_id = body.get("id") if isinstance(body.get("id"), str) else ""
+        asset_id = asset_id.strip()
+        if not asset_id:
+            self._send_json(400, {"ok": False, "error": "id is required"})
+            return
+        asset = find_asset(asset_id)
+        if asset is None or is_parking_stub(asset):
+            self._send_json(404, {"ok": False, "error": "Unknown asset"})
+            return
+        rel = asset.get("body")
+        if not isinstance(rel, str) or not rel:
+            self._send_json(404, {"ok": False, "error": "Unknown asset"})
+            return
+        path = CATALOG / rel
+        if not path.is_file():
+            self._send_json(404, {"ok": False, "error": "Unknown asset"})
+            return
+        record = {"id": asset_id, "asset": rel}
+        atomic_write_text(
+            CURRENT,
+            json.dumps(record, ensure_ascii=False, indent=2) + "\n",
+        )
+        snap = doc_snapshot()
+        payload = {"ok": True, "id": asset_id, "asset": rel}
+        payload.update(snap)
+        self._send_json(200, payload)
