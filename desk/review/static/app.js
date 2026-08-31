@@ -853,3 +853,102 @@
       toast(err.message || "Could not mark ready", true);
     }
   }
+
+  async function applyDoc(data, resetMode) {
+    state.markdown = data.markdown || "";
+    state.savedMarkdown = state.markdown;
+    state.savedAt = data.saved_at || null;
+    state.productionReady = !!data.production_ready;
+    state.generation = data.generation || 0;
+    state.assetMtime = data.asset_mtime || 0;
+    state.docId = data.id || "";
+    state.idle = !!data.idle;
+    state.catalogOpen = false;
+    els.docTitle.textContent = data.title || TITLE_FALLBACK;
+    document.title = els.docTitle.textContent;
+    if (resetMode) setMode("viewing");
+    else if (state.mode === "editing") {
+      els.editor.value = state.markdown;
+      els.livePreview.innerHTML = renderArticle(state.markdown);
+    } else {
+      paintRendered();
+    }
+    renderDrawer();
+    setDirty(false);
+    syncCatalogPanel();
+    if (state.idle && !isLearn()) loadCatalog();
+  }
+
+  async function loadLearn() {
+    var res = await fetch("/steer/static/tutorial.md?v=12");
+    if (!res.ok) throw new Error("Could not load the tutorial");
+    var md = await res.text();
+    window.__TUTORIAL_SRC = md;
+    applyDoc({
+      markdown: md,
+      title: "How Steer works",
+      saved_at: null,
+      generation: 0,
+      production_ready: false
+    }, true);
+    document.body.classList.add("is-learn");
+    var coach = document.getElementById("tour-coach");
+    if (coach) coach.hidden = false;
+  }
+
+  window.__steerApplyLearn = function (md) {
+    applyDoc({
+      markdown: md,
+      title: "How Steer works",
+      saved_at: null,
+      generation: 0,
+      production_ready: false
+    }, true);
+  };
+
+  async function load(resetMode) {
+    if (isLearn()) return loadLearn();
+    var res = await fetch("/steer/api/doc");
+    var data = await res.json();
+    applyDoc(data, resetMode !== false);
+  }
+
+  function watchEvents() {
+    if (isLearn()) return;
+    if (!window.EventSource) return;
+    var primed = false;
+    var es = new EventSource("/steer/api/events");
+    es.onmessage = function (ev) {
+      var data;
+      try { data = JSON.parse(ev.data); } catch (e) { return; }
+      var processed = data.processed_generation || 0;
+      if (!primed) {
+        primed = true;
+        if (data.asset_mtime) state.assetMtime = data.asset_mtime;
+        state.seenProcessed = processed;
+        if (data.id) state.docId = data.id;
+        return;
+      }
+      if (data.id && state.docId && data.id !== state.docId) {
+        if (state.dirty) return;
+        state.docId = data.id;
+        load(true).then(function () {
+          toast("Draft updated");
+        }).catch(function () {});
+        return;
+      }
+      if (data.asset_mtime) state.assetMtime = data.asset_mtime;
+      // Own Save bumps generation. That is not a Composer rewrite.
+      if (data.generation && data.generation === state.generation && processed === (state.seenProcessed || 0)) {
+        return;
+      }
+      if (state.dirty) return;
+      if (processed && processed !== state.seenProcessed) {
+        state.seenProcessed = processed;
+        load(false).then(function () {
+          toast("Draft updated");
+        }).catch(function () {});
+      }
+    };
+    es.onerror = function () { /* browser will retry */ };
+  }
