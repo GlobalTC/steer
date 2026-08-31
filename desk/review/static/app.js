@@ -520,3 +520,34 @@
     els.saveBtn.disabled = idle;
     els.readyBtn.textContent = state.productionReady ? "Production ready" : "Ready for production";
   }
+
+
+  function removeMark(id) {
+    if (!id) return;
+    var md = currentMarkdown();
+    var escaped = String(id).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    var specs = [
+      ["\\{==([\\s\\S]*?)==\\}\\{>>[\\s\\S]*?<<\\}\\{id=\"" + escaped + "\"[^}]*\\}", "$1"],
+      ["\\{~~([\\s\\S]*?)~>[\\s\\S]*?~~\\}\\{id=\"" + escaped + "\"[^}]*\\}", "$1"],
+      ["\\{>>[\\s\\S]*?<<\\}\\{id=\"" + escaped + "\"[^}]*\\}", ""]
+    ];
+    var next = md;
+    var hit = false;
+    for (var i = 0; i < specs.length; i++) {
+      var re = new RegExp(specs[i][0]);
+      if (re.test(md)) {
+        next = md.replace(new RegExp(specs[i][0]), specs[i][1]);
+        hit = true;
+        break;
+      }
+    }
+    if (!hit || next === md) {
+      toast("Could not remove that mark.", true);
+      return;
+    }
+    state.markdown = next;
+    if (state.mode === "editing") els.editor.value = next;
+    setDirty(next !== state.savedMarkdown);
+    paintRendered();
+    renderDrawer();
+  }
