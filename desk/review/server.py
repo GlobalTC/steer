@@ -445,3 +445,55 @@ class Handler(BaseHTTPRequestHandler):
         except OSError:
             pass
         self._send_json(200, {"ok": True, "configured": True})
+
+    def _api_save(self) -> None:
+        body = self._read_json_body()
+        markdown = body.get("markdown")
+        if not isinstance(markdown, str):
+            self._send_json(400, {"ok": False, "error": "markdown is required"})
+            return
+        mode = body.get("mode") if isinstance(body.get("mode"), str) else "viewing"
+        comments = body.get("comments") if isinstance(body.get("comments"), list) else []
+
+        previous = read_json(LATEST) or {}
+        generation = int(previous.get("generation") or 0) + 1
+        saved_at = utc_now_iso()
+        spec = current_spec()
+        record = {
+            "saved_at": saved_at,
+            "markdown": markdown,
+            "mode": mode,
+            "comments": comments,
+            "production_ready": False,
+            "generation": generation,
+            "asset_id": spec.get("id"),
+        }
+
+        # Article file first (source of truth), then the save record.
+        if not markdown.endswith("\n"):
+            asset_text = markdown + "\n"
+        else:
+            asset_text = markdown
+        atomic_write_text(current_asset(), asset_text)
+        atomic_write_text(
+            LATEST,
+            json.dumps(record, ensure_ascii=False, indent=2) + "\n",
+        )
+        threading.Thread(
+            target=ping_webhook,
+            args=({
+                "event": "save",
+                "generation": generation,
+                "saved_at": saved_at,
+                "mode": mode,
+                "comment_count": len(comments),
+                "production_ready": False,
+            },),
+            daemon=True,
+        ).start()
+        self._send_json(200, {
+            "ok": True,
+            "saved_at": saved_at,
+            "generation": generation,
+            "asset_mtime": asset_mtime(),
+        })
