@@ -234,3 +234,72 @@ def doc_snapshot() -> dict:
         "id": current_id,
         "idle": spec_is_idle(spec),
     }
+
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "DraftReview/1.0"
+
+    def log_message(self, fmt: str, *args) -> None:
+        sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
+
+    def _send(self, code: int, body: bytes, content_type: str) -> None:
+        self.send_response(code)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_json(self, code: int, payload: dict) -> None:
+        raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self._send(code, raw, "application/json; charset=utf-8")
+
+    def _read_json_body(self):
+        length = int(self.headers.get("Content-Length") or "0")
+        raw = self.rfile.read(length) if length else b""
+        if not raw:
+            return {}
+        return json.loads(raw.decode("utf-8"))
+
+    def do_GET(self) -> None:
+        parsed = urlparse(self.path)
+        path = unquote(parsed.path)
+        if path == BASE_PATH:
+            self.send_response(302)
+            self.send_header("Location", BASE_PATH + "/")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            return
+        path = normalize_path(path)
+
+        if path == "/":
+            self._serve_file(STATIC / "index.html", "text/html; charset=utf-8")
+            return
+
+        if path == "/api/doc":
+            self._api_doc()
+            return
+
+        if path == "/api/catalog":
+            self._api_catalog()
+            return
+
+        if path == "/api/events":
+            self._api_events()
+            return
+
+        if path == "/api/webhook-status":
+            self._send_json(200, {"configured": webhook_configured()})
+            return
+
+        if path.startswith("/static/"):
+            rel = path[len("/static/") :]
+            self._serve_static(rel)
+            return
+
+        self._send(404, b"Not found\n", "text/plain; charset=utf-8")
