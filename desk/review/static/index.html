@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Steer</title>
+  <link rel="icon" href="/steer/static/steer-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/steer/static/style.css?v=14">
+  <link rel="stylesheet" href="/steer/static/learn.css?v=14">
+</head>
+<body>
+  <div class="learn-banner" id="learn-banner">Learn mode — sandbox. Nothing writes to the catalog. <a href="/steer/">Back to the desk</a></div>
+  <header class="toolbar">
+    <div class="brand">
+      <a class="brand-link" href="/steer/" aria-label="Steer">
+        <img class="brand-mark" src="/steer/static/steer-mark-toolbar.svg?v=16" alt="" width="120" height="30">
+      </a>
+      <div class="toolbar-title" id="doc-title">Draft</div>
+      <button type="button" class="catalog-toggle" id="catalog-toggle" aria-expanded="false" aria-controls="catalog-panel">Catalog</button>
+      <a class="learn-link" href="/steer/?learn=1">Learn</a>
+    </div>
+    <nav class="modes" role="tablist" aria-label="Review mode">
+      <button type="button" class="mode is-active" data-mode="viewing" aria-pressed="true">Viewing</button>
+      <button type="button" class="mode" data-mode="editing" aria-pressed="false">Editing</button>
+      <button type="button" class="mode" data-mode="suggesting" aria-pressed="false">Suggesting</button>
+    </nav>
+    <div class="toolbar-actions">
+      <p class="status" id="status" aria-live="polite">Loading…</p>
+      <button type="button" class="btn btn-secondary" id="ready-btn">Ready for production</button>
+      <button type="button" class="btn btn-primary" id="save-btn">Save</button>
+    </div>
+  </header>
+
+  <div class="workspace" id="workspace">
+    <main class="stage" id="stage">
+      <article class="paper" id="article"></article>
+      <div class="catalog-panel" id="catalog-panel" hidden>
+        <label class="sr-only" for="catalog-search">Search catalog</label>
+        <input type="search" id="catalog-search" class="catalog-search" placeholder="Search drafts" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <div class="catalog-list" id="catalog-list" role="list"></div>
+      </div>
+      <div class="edit-layout" id="edit-layout" hidden>
+        <label class="sr-only" for="editor">Markdown source</label>
+        <textarea id="editor" class="editor" spellcheck="true"></textarea>
+        <div class="live-preview" id="live-preview" aria-hidden="true"></div>
+      </div>
+    </main>
+    <aside class="drawer" id="drawer" hidden>
+      <div class="drawer-head">
+        <h2>Marks</h2>
+        <p class="drawer-count" id="drawer-count"></p>
+      </div>
+      <ol class="mark-list" id="mark-list"></ol>
+    </aside>
+  </div>
+
+  <div class="popover" id="popover" hidden>
+    <div class="popover-actions" id="popover-actions">
+      <button type="button" class="btn btn-small" id="pop-comment">Comment</button>
+      <button type="button" class="btn btn-small" id="pop-replace">Replace</button>
+    </div>
+    <form class="popover-form" id="popover-form" hidden>
+      <label class="sr-only" id="popover-label" for="popover-input">Suggestion</label>
+      <textarea id="popover-input" rows="3"></textarea>
+      <div class="popover-form-actions">
+        <button type="button" class="btn btn-small" id="pop-cancel">Cancel</button>
+        <button type="submit" class="btn btn-small btn-primary" id="pop-apply">Apply</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h2 id="modal-title">Ready for production?</h2>
+      <p>This does not change the article. It sets a ready flag on the last save so production can pick it up.</p>
+      <p class="modal-note" id="modal-note" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="modal-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="modal-confirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <aside class="tour-coach" id="tour-coach" hidden>
+    <p class="tour-kicker">Steer tutorial</p>
+    <h2 id="tour-title">Sandbox</h2>
+    <p id="tour-body"></p>
+    <div class="tour-nav">
+      <button type="button" class="btn btn-small" id="tour-reset">Reset text</button>
+      <button type="button" class="btn btn-small" id="tour-prev">Back</button>
+      <button type="button" class="btn btn-small btn-primary" id="tour-next">Next</button>
+      <span class="tour-step" id="tour-step"></span>
+    </div>
+  </aside>
+
+  <script src="/steer/static/vendor/marked.min.js?v=14"></script>
+  <script src="/steer/static/app.js?v=14"></script>
+  <script src="/steer/static/learn.js?v=14"></script>
+</body>
+</html>
