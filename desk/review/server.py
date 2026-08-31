@@ -303,3 +303,64 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         self._send(404, b"Not found\n", "text/plain; charset=utf-8")
+
+    def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+        path = unquote(parsed.path)
+        path = normalize_path(path)
+        try:
+            if path == "/api/save":
+                self._api_save()
+                return
+            if path == "/api/ready":
+                self._api_ready()
+                return
+            if path == "/api/current":
+                self._api_current()
+                return
+            if path == "/api/webhook-config":
+                self._api_webhook_config()
+                return
+        except json.JSONDecodeError:
+            self._send_json(400, {"ok": False, "error": "Invalid JSON"})
+            return
+        except Exception as exc:
+            self._send_json(500, {"ok": False, "error": str(exc)})
+            return
+        self._send(404, b"Not found\n", "text/plain; charset=utf-8")
+
+    def _serve_static(self, rel: str) -> None:
+        if not rel or rel.endswith("/"):
+            self._send(404, b"Not found\n", "text/plain; charset=utf-8")
+            return
+        # Reject path escape.
+        candidate = (STATIC / rel).resolve()
+        try:
+            candidate.relative_to(STATIC.resolve())
+        except ValueError:
+            self._send(403, b"Forbidden\n", "text/plain; charset=utf-8")
+            return
+        if not candidate.is_file():
+            self._send(404, b"Not found\n", "text/plain; charset=utf-8")
+            return
+        ext = candidate.suffix.lower()
+        content_type = MIME.get(ext, "application/octet-stream")
+        self._serve_file(candidate, content_type)
+
+    def _serve_file(self, path: Path, content_type: str) -> None:
+        if not path.is_file():
+            self._send(404, b"Not found\n", "text/plain; charset=utf-8")
+            return
+        data = path.read_bytes()
+        self._send(200, data, content_type)
+
+    def _api_doc(self) -> None:
+        self._send_json(200, doc_snapshot())
+
+    def _api_catalog(self) -> None:
+        spec = current_spec()
+        assets = [public_catalog_asset(a) for a in all_assets() if not is_parking_stub(a)]
+        self._send_json(200, {
+            "current_id": spec.get("id"),
+            "assets": assets,
+        })
