@@ -497,3 +497,57 @@ class Handler(BaseHTTPRequestHandler):
             "generation": generation,
             "asset_mtime": asset_mtime(),
         })
+
+    def _api_ready(self) -> None:
+        latest = read_json(LATEST)
+        if latest is None:
+            self._send_json(400, {"ok": False, "error": "Save once before marking ready"})
+            return
+        latest["production_ready"] = True
+        if "markdown" not in latest:
+            latest["markdown"] = read_asset()
+        atomic_write_text(
+            LATEST,
+            json.dumps(latest, ensure_ascii=False, indent=2) + "\n",
+        )
+        threading.Thread(
+            target=ping_webhook,
+            args=({
+                "event": "ready",
+                "generation": latest.get("generation"),
+                "saved_at": latest.get("saved_at"),
+                "production_ready": True,
+            },),
+            daemon=True,
+        ).start()
+        self._send_json(200, {"ok": True})
+
+
+def main() -> int:
+    SAVES.mkdir(parents=True, exist_ok=True)
+    if not current_asset().is_file():
+        sys.stderr.write("Article markdown is missing: %s\n" % current_asset())
+        return 1
+    try:
+        server = ThreadedHTTPServer((HOST, PORT), Handler)
+    except OSError as exc:
+        sys.stderr.write(
+            "Port %s is already in use on %s. Not killing any process. %s\n"
+            % (PORT, HOST, exc)
+        )
+        return 1
+    sys.stderr.write(
+        "Draft review at http://%s:%s/\nArticle: %s\n"
+        % (HOST, PORT, current_asset())
+    )
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        sys.stderr.write("\nStopped.\n")
+    finally:
+        server.server_close()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
