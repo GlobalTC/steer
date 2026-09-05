@@ -10,6 +10,10 @@ Pull the `desk/` tree from the main tarball (not a git clone) into `/workspace/s
 
 Installing the stock desk **is** the product. Do not skip it. Do not redesign the page.
 
+## 0b. Complementary desks
+
+Steer is the mark-and-rewrite desk (any source voice, shareable product). A personal writer bot, if present, owns its own catalog and review port — leave that desk alone. Never write another desk's catalog, webhook env, or Saves. Match the source document voice; do not impose a house style or a particular person's voice unless the source already is that person.
+
 ## 1. One asset, one document
 
 The catalog at this folder is the copy of record. One asset per document in `assets/`. `assets/<id>.md` is the text. `index.json` is the machine list. Steer writes. Other assistants read.
