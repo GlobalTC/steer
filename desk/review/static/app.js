@@ -682,20 +682,19 @@
     }
     var sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) {
-      if (!els.popover.hidden) return;
-      hidePopover();
+      // selectionchange has no event; keep an open form. A real click
+      // away (mouseup outside the popover) dismisses it.
+      if (els.popover.hidden || ev) hidePopover();
       return;
     }
     var range = sel.getRangeAt(0);
     if (!els.article.contains(range.commonAncestorContainer)) {
-      if (!els.popover.hidden) return;
-      hidePopover();
+      if (els.popover.hidden || ev) hidePopover();
       return;
     }
     var text = sel.toString();
     if (!text || !text.trim()) {
-      if (!els.popover.hidden) return;
-      hidePopover();
+      if (els.popover.hidden || ev) hidePopover();
       return;
     }
     var mapped = mapSelection(text, state.markdown, selectionContext(range));
@@ -705,10 +704,9 @@
       return;
     }
     state.popRange = mapped;
-    if (!state.popKind) {
-      els.popoverForm.hidden = true;
-      els.popoverActions.hidden = false;
-    }
+    state.popKind = null;
+    els.popoverForm.hidden = true;
+    els.popoverActions.hidden = false;
     var rect = range.getBoundingClientRect();
     var x = rect.left;
     var y = rect.bottom + 8;
