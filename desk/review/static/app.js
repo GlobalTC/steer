@@ -230,7 +230,8 @@
       var tok = protectedMd.tokens[i];
       html = html.split(tok.key).join(tok.html);
     }
-    return html;
+    // /static/... 404s on Tailscale Serve (/steer only). Rewrite to BASE_PATH.
+    return html.replace(/(src|href)=("|')\/static\//g, "$1=$2/steer/static/");
   }
 
   function buildVisibleIndex(src) {
