@@ -1,0 +1,16 @@
+{
+  "name": "STEER",
+  "base_path": "/steer",
+  "port": 8766,
+  "host": "127.0.0.1",
+  "default_asset": "assets/steer-slop-sample.md",
+  "title_fallback": "Draft",
+  "timezone": "America/Denver",
+  "tz_label": "MT",
+  "features": {"catalog": true, "learn": true},
+  "brand": {"toolbar_logo": "steer-mark-toolbar.svg", "favicon": "steer-mark.svg"},
+  "voice_env": "review/.voice.env",
+  "notify": [
+    {"name": "STEER", "env": "review/.webhook.env", "why": "this bot's Draft review save ping routine"}
+  ]
+}

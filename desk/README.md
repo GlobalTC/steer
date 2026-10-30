@@ -36,11 +36,14 @@ In **Suggesting** mode the desk can capture marks by speech (keyboard optional; 
 
 Tests:
 
-    python3 -m unittest discover -s review/tests -p 'test_*.py'
+    python3 -m unittest discover -s app/tests -p 'test_*.py'
 
 ## Paths
 
 - `index.json` — machine list. Start here.
 - `assets/<id>.md` — one asset per document.
 - `CONSTITUTION.md` — how drafts are reviewed.
-- `review/` — live review app. `review/current.json` is the active piece.
+- `steer.json` — desk settings: name, port, base path, logos, who gets notified on Save.
+- `brand/` — logos, tutorial text, figures (data).
+- `app/` — the STEER app (server + page). Built from one codebase; an update replaces this folder only, never your drafts.
+- `review/` — runtime only. `review/current.json` is the active piece; `review/webhook.log` says whether each Save notified the bot.

@@ -8,8 +8,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-REVIEW = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REVIEW))
+APP = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(APP))
 
 from voice_stt import stt_configured, transcribe_audio  # noqa: E402
 

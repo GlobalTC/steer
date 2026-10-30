@@ -12,7 +12,7 @@ One-time setup so a new Steer actually is the desk, not a prompt with no page. D
 Run it when any of these is true:
 
 - This Steer has never been wired.
-- `/workspace/steer-catalog` is missing, or `review/server.py` is missing.
+- `/workspace/steer-catalog` is missing, or `app/server.py` is missing from it.
 - `http://127.0.0.1:8766/steer/` does not answer.
 - Save no longer wakes the desk.
 
@@ -26,7 +26,7 @@ Product repo (source of the page, server, sample draft, logos): `https://github.
 
 Catalog path: `/workspace/steer-catalog`
 
-If the catalog is already present **and** `review/server.py` exists, skip the download. Do not overwrite someone else's drafts.
+If the catalog is already present **and** `app/server.py` exists, skip the download. Do not overwrite someone else's drafts.
 
 If the catalog is missing, or the server file is missing:
 
@@ -44,7 +44,7 @@ If the catalog is missing, or the server file is missing:
 
        cp -R "$SRC" /workspace/steer-catalog
 
-   If it exists but `review/server.py` is missing, copy `review/server.py`, `review/static/`, `start.py`, and `CONSTITUTION.md` from `$SRC` into the catalog. Leave `assets/` and `index.json` alone.
+   If it exists but `app/server.py` is missing (older desks kept code in `review/`), replace only `app/` and `start.py` from `$SRC`, and copy `steer.json`, `brand/` and `CONSTITUTION.md` only if missing. Leave `assets/`, `index.json` and `review/` alone. Or just run `install-desk.sh`, which does exactly this.
 
 4. Confirm `steer-slop-sample` is the current draft (`review/current.json`) so the first open is something to mark, not an empty parking page. If `current.json` is missing, write it pointing at `assets/steer-slop-sample.md`.
 

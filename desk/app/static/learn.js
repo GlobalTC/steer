@@ -35,7 +35,7 @@
     {
       id: "save",
       title: "Save",
-      body: "On a real draft this writes the file and wakes Steer. Here it only pretends. Try it.",
+      body: "On a real draft this writes the file and wakes Steer. Here it says Not saved, so you always know when nothing was written. Try it.",
       spot: "save",
       mode: null
     },

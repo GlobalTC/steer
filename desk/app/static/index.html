@@ -31,6 +31,12 @@
     </div>
   </header>
 
+  <div class="restore-banner" id="restore-banner" role="status" hidden>
+    <span id="restore-msg"></span>
+    <button type="button" class="btn btn-small" id="restore-discard">Discard</button>
+    <button type="button" class="btn btn-small btn-primary" id="restore-apply">Restore</button>
+  </div>
+
   <div class="workspace" id="workspace">
     <main class="stage" id="stage">
       <article class="paper" id="article"></article>
@@ -96,6 +102,18 @@
       <div class="modal-actions">
         <button type="button" class="btn" id="modal-cancel">Cancel</button>
         <button type="button" class="btn btn-primary" id="modal-confirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="save-error" hidden>
+    <div class="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="save-error-title" aria-describedby="save-error-msg">
+      <h2 id="save-error-title">Not saved</h2>
+      <p id="save-error-msg"></p>
+      <p class="modal-note" id="save-error-note"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="save-error-close">Keep editing</button>
+        <button type="button" class="btn btn-primary" id="save-error-retry">Retry</button>
       </div>
     </div>
   </div>
