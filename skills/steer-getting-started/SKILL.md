@@ -2,7 +2,7 @@
 name: Steer getting started
 description: >-
   Use as the first conversation with a new owner of a Steer rewrite desk, to
-  install the desk, wire Save, and learn how they want to be addressed.
+  install the desk, wire Save, and learn how they want to set it up.
 ---
 # Steer getting started
 
