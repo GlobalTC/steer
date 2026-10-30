@@ -26,29 +26,17 @@ Product repo (source of the page, server, sample draft, logos): `https://github.
 
 Catalog path: `/workspace/steer-catalog`
 
-If the catalog is already present **and** `app/server.py` exists, skip the download. Do not overwrite someone else's drafts.
+Run **`install-desk.sh`** from the product repo (pinned release tarball, not `main`). It installs or upgrades `app/` and `start.py`, merges new `steer.json` keys (including `brand` and `voice_env`) without clobbering yours, adds missing `brand/` assets, and starts the server using the **port and base path in `steer.json`**. It fails if that port is already serving a different desk.
 
-If the catalog is missing, or the server file is missing:
+       curl -fsSL https://raw.githubusercontent.com/GlobalTC/steer/main/install-desk.sh | bash
 
-1. Download the repo tarball (do not `git clone` onto the computer):
+Or, from a checkout:
 
-       curl -fsSL https://github.com/GlobalTC/steer/archive/refs/heads/main.tar.gz -o /tmp/steer.tgz
+       bash install-desk.sh
 
-2. Unpack and copy only `desk/` :
+Do not `git clone` the product repo onto the computer. Do not copy `review/server.py` or legacy `review/static/` — code lives in `app/` only.
 
-       mkdir -p /tmp/steer-unpack
-       tar -xzf /tmp/steer.tgz -C /tmp/steer-unpack
-       SRC=$(find /tmp/steer-unpack -maxdepth 2 -type d -name desk | head -1)
-
-3. If `/workspace/steer-catalog` does not exist:
-
-       cp -R "$SRC" /workspace/steer-catalog
-
-   If it exists but `app/server.py` is missing (older desks kept code in `review/`), replace only `app/` and `start.py` from `$SRC`, and copy `steer.json`, `brand/` and `CONSTITUTION.md` only if missing. Leave `assets/`, `index.json` and `review/` alone. Or just run `install-desk.sh`, which does exactly this.
-
-4. Confirm `steer-slop-sample` is the current draft (`review/current.json`) so the first open is something to mark, not an empty parking page. If `current.json` is missing, write it pointing at `assets/steer-slop-sample.md`.
-
-Or run `install-desk.sh` from this repo (same steps). Do not start a second server if the page already answers.
+Confirm `steer-slop-sample` is the current draft (`review/current.json`) when the catalog is new.
 
 ## 2. Start the page
 
@@ -64,7 +52,11 @@ Tailscale Serve is optional and not part of first-run. If this computer is on a 
 
 Do not put a webhook URL or sender-key form on the review page.
 
-## 3. Wire Save
+## 3. Voice (optional)
+
+Voice markup works out of the box with the browser speech API. For host LLM resolution, set `XAI_API_KEY` or `STEER_LLM_*` on the computer, or copy `review/.voice.env.example` to `review/.voice.env` and set `VOICE_RESOLVE_URL` / keys. For server STT when the browser has no mic API, set `VOICE_STT_URL` in the same env file (`steer.json` `voice_env` points at it). Never hardcode keys in the catalog.
+
+## 4. Wire Save
 
 Steer sleeps between turns. SSE updates the open tab. It cannot wake Steer. Save must POST to **this bot's** webhook routine.
 

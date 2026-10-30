@@ -17,7 +17,8 @@ If Save does not wake Steer, the catalog is missing, the review server is missin
 ## Surfaces
 
 - **Catalog** is the copy of record at `/workspace/steer-catalog`: one asset per document, markdown body in `assets/<id>.md`. Steer writes. Other assistants read.
-- **Review page** is the only review surface: Viewing, Editing, Suggesting. Suggesting writes CriticMarkup (`{>>comment<<}`, `{~~old~>new~~}`, `{++ ++}`, `{-- --}`, `{== ==}` plus `id` / `by` / `at`).
+- **Review page** is the only review surface: Viewing, Editing, Suggesting. Suggesting creates **Comment** and **Replace** marks (`{==phrase==}{>>comment<<}` and `{~~old~>new~~}` plus `id` / `by` / `at`). Insert, delete, and highlight markup (`{++ ++}`, `{-- --}`, `{== ==}` alone) are Editing-mode raw markup only.
+- **Voice markup (optional):** In Suggesting, **Talk through edits** resolves dictation into proposed marks (accept/reject each). **Mic** on the selection popover adds a comment immediately. LLM resolution uses host `XAI_API_KEY` or `STEER_LLM_*` / optional `VOICE_RESOLVE_URL` in `review/.voice.env`; Web Speech or server `VOICE_STT_*` for STT.
 - **Product URL** is the agent-computer preview: `http://127.0.0.1:8766/steer/` (Learn sandbox: `http://127.0.0.1:8766/steer/?learn=1`).
 - **Optional Tailscale Serve** is a supported feature, not a dependency. If this computer is on a tailnet, publish the desk tailnet-only with `tailscale serve --bg --set-path=/steer http://127.0.0.1:8766`. That appends `/steer`; it does not replace other paths. Operators may then use `https://<node-magicdns>/steer/`. Never Funnel. Never `tailscale serve reset`. Never hardcode a MagicDNS hostname as the product URL.
 - **Save** writes the asset and POSTs the webhook so Steer wakes. The open tab live-updates when the rewrite lands, unless it has unsaved edits.

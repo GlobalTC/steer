@@ -277,7 +277,7 @@
       });
     }
 
-    var reMeta = '\\{id="([^"]*)"\s+by="([^"]*)"\s+at="([^"]*)"\\}';
+    var reMeta = '\\{id="([^"]*)"\\s+by="([^"]*)"\\s+at="([^"]*)"\\}';
     var reHC = new RegExp("\\{==([\\s\\S]*?)==\\}\\{>>([\\s\\S]*?)<<\\}(?:" + reMeta + ")?", "g");
     var m;
     while ((m = reHC.exec(md))) {
@@ -982,29 +982,53 @@
         "{>>" + proposal.body.trim() + "<<}" +
         metaSuffix(gid, stamp);
       state.markdown = md + (md.endsWith("\n") ? "" : "\n") + wrapped;
-    } else if (proposal.anchor) {
+      setDirty(state.markdown !== state.savedMarkdown);
+      paintRendered();
+      renderDrawer();
+      toast("Mark accepted");
+      return true;
+    }
+    if (proposal.anchor) {
       var range = {
         start: proposal.anchor.start,
         end: proposal.anchor.end,
         text: proposal.anchor.text
       };
-      if (proposal.kind === "replace") {
-        insertMark(range, "replace", proposal.replace_with || proposal.body);
-        return;
-      }
-      insertMark(range, "comment", proposal.body);
-      return;
-    } else {
-      var uid = nextId(md, "c");
-      wrapped =
-        "{>>" + proposal.body.trim() + "<<}" +
-        metaSuffix(uid, stamp);
-      state.markdown = md + (md.endsWith("\n") ? "" : "\n") + wrapped;
+      var ok =
+        proposal.kind === "replace"
+          ? insertMark(range, "replace", proposal.replace_with || proposal.body)
+          : insertMark(range, "comment", proposal.body);
+      if (ok) toast("Mark accepted");
+      return ok;
     }
+    var uid = nextId(md, "c");
+    wrapped =
+      "{>>" + proposal.body.trim() + "<<}" +
+      metaSuffix(uid, stamp);
+    state.markdown = md + (md.endsWith("\n") ? "" : "\n") + wrapped;
     setDirty(state.markdown !== state.savedMarkdown);
     paintRendered();
     renderDrawer();
     toast("Mark accepted");
+    return true;
+  }
+
+  function reanchorVoiceProposals(items) {
+    return fetch(BASE + "/api/reanchor-voice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markdown: state.markdown, proposals: items })
+    })
+      .then(function (res) {
+        return res.json();
+      })
+      .then(function (data) {
+        if (!data.ok || !Array.isArray(data.proposals)) return items;
+        return data.proposals;
+      })
+      .catch(function () {
+        return items;
+      });
   }
 
   function applySuggestion(ev) {
@@ -1302,7 +1326,7 @@
         return;
       }
       if (data.asset_mtime) state.assetMtime = data.asset_mtime;
-      // Own Save bumps generation. That is not a Composer rewrite.
+      // Own Save bumps generation; ignore that SSE echo.
       if (data.generation && data.generation === state.generation && processed === (state.seenProcessed || 0)) {
         return;
       }
@@ -1474,6 +1498,7 @@
           toast: toast,
           applyVoiceComment: applyVoiceComment,
           applyVoiceProposal: applyVoiceProposal,
+          reanchorVoiceProposals: reanchorVoiceProposals,
           syncDrawer: renderDrawer,
           ensureDrawerVisible: function () {
             els.drawer.hidden = false;

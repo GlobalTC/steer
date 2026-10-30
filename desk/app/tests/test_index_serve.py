@@ -88,6 +88,7 @@ class TestIndexServe(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.httpd.shutdown()
+        cls.httpd.server_close()
         shutil.rmtree(cls._catalog_dir, ignore_errors=True)
 
     def test_steers_home_has_config_and_logo(self) -> None:

@@ -43,8 +43,6 @@ def _resolve_api_key(env: Optional[Dict[str, str]] = None) -> str:
         "STEER_LLM_API_KEY",
         "VOICE_LLM_API_KEY",
         "XAI_API_KEY",
-        "OPENAI_API_KEY",
-        "API_KEY",
     ):
         val = env.get(name) or _read_env(name)
         if val:
@@ -59,8 +57,6 @@ def _resolve_base_url(env: Optional[Dict[str, str]] = None) -> str:
         return explicit.rstrip("/")
     if env.get("XAI_API_KEY") or _read_env("XAI_API_KEY"):
         return "https://api.x.ai/v1"
-    if env.get("OPENAI_API_KEY") or _read_env("OPENAI_API_KEY"):
-        return "https://api.openai.com/v1"
     return ""
 
 
@@ -71,7 +67,7 @@ def _resolve_model(env: Optional[Dict[str, str]] = None) -> str:
         or _read_env("STEER_LLM_MODEL")
         or env.get("VOICE_LLM_MODEL")
         or _read_env("VOICE_LLM_MODEL")
-        or "grok-2-latest"
+        or "grok-3-latest"
     )
 
 
@@ -185,9 +181,15 @@ def resolve_dictation_host_chat(
     except (URLError, TimeoutError, OSError, json.JSONDecodeError, ValueError):
         return None
     choices = raw.get("choices") if isinstance(raw, dict) else None
-    if not choices:
+    if not isinstance(choices, list) or not choices:
         return None
-    content = choices[0].get("message", {}).get("content") if choices else None
+    first = choices[0]
+    if not isinstance(first, dict):
+        return None
+    message = first.get("message")
+    if not isinstance(message, dict):
+        return None
+    content = message.get("content")
     if not isinstance(content, str):
         return None
     parsed = _extract_json(content)

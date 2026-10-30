@@ -279,6 +279,8 @@
         rej.setAttribute("data-proposal-reject", p._pid);
         actions.appendChild(acc);
         actions.appendChild(rej);
+      } else if (p._status === "stale") {
+        actions.textContent = "Needs re-anchoring";
       } else {
         actions.textContent = p._status === "accepted" ? "Accepted" : "Rejected";
       }
@@ -303,8 +305,34 @@
   function acceptProposal(pid) {
     var p = findProposal(pid);
     if (!p || p._status !== "proposed") return;
-    api.applyVoiceProposal(p);
+    var ok = api.applyVoiceProposal(p);
+    if (!ok) {
+      p._status = "stale";
+      api.toast("The source moved. Re-anchor or reject this proposal.", true);
+      renderProposals();
+      return;
+    }
     p._status = "accepted";
+    var remaining = proposed.filter(function (x) {
+      return x._status === "proposed";
+    });
+    if (remaining.length && api.reanchorVoiceProposals) {
+      api.reanchorVoiceProposals(remaining).then(function (updated) {
+        updated.forEach(function (u, idx) {
+          var pid2 = remaining[idx] && remaining[idx]._pid;
+          var tgt = pid2 ? findProposal(pid2) : null;
+          if (!tgt) return;
+          tgt.anchor = u.anchor;
+          tgt.excerpt = u.excerpt;
+          tgt.kind = u.kind;
+          tgt.anchor_scope = u.anchor_scope;
+          if (u.stale) {
+            tgt._status = "stale";
+          }
+        });
+        renderProposals();
+      });
+    }
     renderProposals();
   }
 

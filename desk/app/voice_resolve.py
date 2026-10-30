@@ -373,3 +373,33 @@ def resolve_dictation(
 
 def proposals_to_json(proposals: List[MarkProposal]) -> List[Dict[str, Any]]:
     return [p.to_dict() for p in proposals]
+
+
+def reanchor_proposal_dicts(
+    markdown: str, proposals: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Re-map phrase anchors after earlier accepts changed the markdown."""
+    idx = build_visible_index(markdown)
+    out: List[Dict[str, Any]] = []
+    for raw in proposals:
+        if not isinstance(raw, dict):
+            continue
+        p = dict(raw)
+        kind = p.get("kind")
+        anchor = p.get("anchor")
+        if kind in ("comment", "replace") and isinstance(anchor, dict):
+            phrase = anchor.get("text") or p.get("excerpt") or ""
+            mapped = map_phrase(markdown, str(phrase), idx=idx) if phrase else None
+            if mapped:
+                start, end, text = mapped
+                p["anchor"] = {"start": start, "end": end, "text": text}
+                p["excerpt"] = text
+                p["anchor_scope"] = "phrase"
+            else:
+                p["anchor"] = None
+                p["excerpt"] = ""
+                p["kind"] = "general"
+                p["anchor_scope"] = "general"
+                p["stale"] = True
+        out.append(p)
+    return out
