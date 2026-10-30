@@ -12,8 +12,9 @@ Env:  STEER_CATALOG, STEER_PORT, STEER_BASE_PATH, STEER_HOST override steer.json
 
 from __future__ import annotations
 
-import cgi
 import json
+from email import policy
+from email.parser import BytesParser
 import os
 import sys
 import tempfile
@@ -125,6 +126,29 @@ def normalize_path(path: str) -> str:
         return rest if rest else "/"
     return path
 
+
+def parse_multipart_field(
+    body: bytes, content_type: str, field_name: str
+) -> tuple[bytes, str]:
+    """Extract one named field from multipart/form-data (stdlib; Python 3.13+ safe)."""
+    header_block = (
+        "Content-Type: %s\r\nMIME-Version: 1.0\r\n\r\n" % content_type
+    ).encode("latin-1")
+    msg = BytesParser(policy=policy.default).parsebytes(header_block + body)
+    if not msg.is_multipart():
+        raise ValueError("Expected multipart body")
+    for part in msg.iter_parts():
+        name = part.get_param("name", header="content-disposition")
+        if name != field_name:
+            continue
+        payload = part.get_payload(decode=True)
+        if payload is None:
+            payload = b""
+        elif isinstance(payload, str):
+            payload = payload.encode("utf-8")
+        part_type = part.get_content_type() or "application/octet-stream"
+        return payload, part_type
+    raise ValueError("%s field is required" % field_name)
 
 
 def utc_now_iso() -> str:
@@ -676,24 +700,14 @@ class Handler(BaseHTTPRequestHandler):
         audio_bytes = b""
         audio_type = "application/octet-stream"
         try:
+            length = int(self.headers.get("Content-Length") or "0")
+            raw_body = self.rfile.read(length) if length else b""
             if content_type.startswith("multipart/form-data"):
-                form = cgi.FieldStorage(
-                    fp=self.rfile,
-                    headers=self.headers,
-                    environ={
-                        "REQUEST_METHOD": "POST",
-                        "CONTENT_TYPE": content_type,
-                    },
+                audio_bytes, audio_type = parse_multipart_field(
+                    raw_body, content_type, "audio"
                 )
-                if "audio" not in form:
-                    self._send_json(400, {"ok": False, "error": "audio field is required"})
-                    return
-                item = form["audio"]
-                audio_bytes = item.file.read() if item.file else b""
-                audio_type = item.type or audio_type
             else:
-                length = int(self.headers.get("Content-Length") or "0")
-                audio_bytes = self.rfile.read(length) if length else b""
+                audio_bytes = raw_body
                 audio_type = content_type.split(";")[0].strip() or audio_type
         except Exception as exc:
             self._send_json(400, {"ok": False, "error": str(exc)})
