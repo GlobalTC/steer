@@ -114,7 +114,8 @@
       });
     }
 
-    var reHC = /\{==([\s\S]*?)==\}\{>>([\s\S]*?)<<\}(?:\{id="([^"]*)"\s+by="([^"]*)"\s+at="([^"]*)"\})?/g;
+    var reMeta = '\\{id="([^"]*)"\s+by="([^"]*)"\s+at="([^"]*)"(?:\s+via="([^"]*)")?\\}';
+    var reHC = new RegExp("\\{==([\\s\\S]*?)==\\}\\{>>([\\s\\S]*?)<<\\}(?:" + reMeta + ")?", "g");
     var m;
     while ((m = reHC.exec(md))) {
       items.push({
@@ -122,26 +123,28 @@
         id: m[3] || "",
         by: m[4] || AUTHOR,
         at: m[5] || "",
+        via: m[6] || "",
         excerpt: m[1],
         body: m[2]
       });
       markUsed(m.index, m.index + m[0].length);
     }
 
-    var reSub = /\{~~([\s\S]*?)~>([\s\S]*?)~~\}(?:\{id="([^"]*)"\s+by="([^"]*)"\s+at="([^"]*)"\})?/g;
+    var reSub = new RegExp("\\{~~([\\s\\S]*?)~>([\\s\\S]*?)~~\\}(?:" + reMeta + ")?", "g");
     while ((m = reSub.exec(md))) {
       items.push({
         type: "replace",
         id: m[3] || "",
         by: m[4] || AUTHOR,
         at: m[5] || "",
+        via: m[6] || "",
         excerpt: m[1],
         body: m[2]
       });
       markUsed(m.index, m.index + m[0].length);
     }
 
-    var reC = /\{>>([\s\S]*?)<<\}(?:\{id="([^"]*)"\s+by="([^"]*)"\s+at="([^"]*)"\})?/g;
+    var reC = new RegExp("\\{>>([\\s\\S]*?)<<\\}(?:" + reMeta + ")?", "g");
     while ((m = reC.exec(md))) {
       if (overlaps(m.index, m.index + m[0].length)) continue;
       items.push({
@@ -149,6 +152,7 @@
         id: m[2] || "",
         by: m[3] || AUTHOR,
         at: m[4] || "",
+        via: m[5] || "",
         excerpt: "",
         body: m[1]
       });
@@ -584,6 +588,13 @@
       kind.className = "mark-kind";
       kind.textContent = (mark.type === "replace" ? "Replace" : "Comment") + (mark.id ? " · " + mark.id : "");
       head.appendChild(kind);
+      if (mark.via === "voice") {
+        var voiceTag = document.createElement("span");
+        voiceTag.className = "mark-voice-tag";
+        voiceTag.textContent = "Voice";
+        voiceTag.title = "Created from speech";
+        head.appendChild(voiceTag);
+      }
       var body = document.createElement("div");
       body.className = "mark-body";
       body.textContent = mark.type === "replace" ? mark.excerpt + " → " + mark.body : mark.body;
@@ -639,6 +650,8 @@
     }
     hidePopover();
     els.article.classList.toggle("is-suggesting", mode === "suggesting");
+    var dock = $("voice-dock");
+    if (dock) dock.hidden = mode !== "suggesting" || isIdle() || isLearn();
     renderDrawer();
     updateStatus();
     syncCatalogPanel();
@@ -736,6 +749,87 @@
     els.popoverInput.focus();
   }
 
+  function metaSuffix(id, stamp, viaVoice) {
+    var base = '{id="' + id + '" by="' + AUTHOR + '" at="' + stamp + '"';
+    if (viaVoice) base += ' via="voice"';
+    return base + "}";
+  }
+
+  function insertMark(range, kind, note, viaVoice) {
+    var md = state.markdown;
+    var chunk = md.slice(range.start, range.end);
+    if (chunk !== range.text) {
+      toast("The source moved. Select the phrase again.", true);
+      hidePopover();
+      return false;
+    }
+    var stamp = isoNow();
+    var wrapped;
+    if (kind === "comment") {
+      var cid = nextId(md, "c");
+      wrapped =
+        "{==" + chunk + "==}{>>" + note.trim() + "<<}" +
+        metaSuffix(cid, stamp, viaVoice);
+    } else {
+      var sid = nextId(md, "s");
+      wrapped =
+        "{~~" + chunk + "~>" + note + "~~}" +
+        metaSuffix(sid, stamp, viaVoice);
+    }
+    state.markdown = md.slice(0, range.start) + wrapped + md.slice(range.end);
+    setDirty(state.markdown !== state.savedMarkdown);
+    paintRendered();
+    renderDrawer();
+    hidePopover();
+    window.getSelection().removeAllRanges();
+    return true;
+  }
+
+  function applyVoiceComment(note) {
+    if (!state.popRange || !note.trim()) {
+      toast("Select text or tap a paragraph first.", true);
+      return;
+    }
+    if (insertMark(state.popRange, "comment", note, true)) {
+      toast("Voice comment added");
+    }
+  }
+
+  function applyVoiceProposal(proposal) {
+    var md = state.markdown;
+    var stamp = isoNow();
+    var wrapped;
+    if (proposal.kind === "general") {
+      var gid = nextId(md, "c");
+      wrapped =
+        "{>>" + proposal.body.trim() + "<<}" +
+        metaSuffix(gid, stamp, true);
+      state.markdown = md + (md.endsWith("\n") ? "" : "\n") + wrapped;
+    } else if (proposal.anchor) {
+      var range = {
+        start: proposal.anchor.start,
+        end: proposal.anchor.end,
+        text: proposal.anchor.text
+      };
+      if (proposal.kind === "replace") {
+        insertMark(range, "replace", proposal.replace_with || proposal.body, true);
+        return;
+      }
+      insertMark(range, "comment", proposal.body, true);
+      return;
+    } else {
+      var uid = nextId(md, "c");
+      wrapped =
+        "{>>" + proposal.body.trim() + "<<}" +
+        metaSuffix(uid, stamp, true);
+      state.markdown = md + (md.endsWith("\n") ? "" : "\n") + wrapped;
+    }
+    setDirty(state.markdown !== state.savedMarkdown);
+    paintRendered();
+    renderDrawer();
+    toast("Mark accepted");
+  }
+
   function applySuggestion(ev) {
     ev.preventDefault();
     if (!state.popRange || !state.popKind) return;
@@ -755,21 +849,64 @@
       hidePopover();
       return;
     }
-    var stamp = isoNow();
-    var wrapped;
-    if (state.popKind === "comment") {
-      var cid = nextId(md, "c");
-      wrapped = "{==" + chunk + "==}{>>" + note.trim() + "<<}{id=\"" + cid + "\" by=\"" + AUTHOR + "\" at=\"" + stamp + "\"}";
-    } else {
-      var sid = nextId(md, "s");
-      wrapped = "{~~" + chunk + "~>" + note + "~~}{id=\"" + sid + "\" by=\"" + AUTHOR + "\" at=\"" + stamp + "\"}";
+    insertMark(state.popRange, state.popKind, note, false);
+  }
+
+  function mapParagraphTap(blockText) {
+    var ctx = blockText.replace(/\s+/g, " ").trim();
+    if (!ctx) return { error: "Empty paragraph" };
+    var idx = buildVisibleIndex(state.markdown);
+    var pos = 0;
+    var hit = -1;
+    while (pos <= idx.vis.length) {
+      var end = idx.vis.indexOf("\n\n", pos);
+      if (end === -1) end = idx.vis.length;
+      var block = idx.vis.slice(pos, end).replace(/\s+/g, " ").trim();
+      if (block && (block === ctx || block.indexOf(ctx) !== -1 || ctx.indexOf(block) !== -1)) {
+        hit = pos;
+        break;
+      }
+      if (end >= idx.vis.length) break;
+      pos = end + 2;
     }
-    state.markdown = md.slice(0, state.popRange.start) + wrapped + md.slice(state.popRange.end);
-    setDirty(state.markdown !== state.savedMarkdown);
-    paintRendered();
-    renderDrawer();
-    hidePopover();
-    window.getSelection().removeAllRanges();
+    if (hit < 0) {
+      return mapSelection(ctx.slice(0, 200), state.markdown, ctx);
+    }
+    var endVis = idx.vis.indexOf("\n\n", hit);
+    if (endVis === -1) endVis = idx.vis.length;
+    var needle = idx.vis.slice(hit, endVis);
+    if (!needle.trim()) return { error: "Could not map paragraph" };
+    var srcStart = idx.map[hit];
+    var lastVis = endVis - 1;
+    while (lastVis > hit && /\s/.test(idx.vis.charAt(lastVis))) lastVis -= 1;
+    if (lastVis >= idx.map.length) return { error: "Could not map paragraph" };
+    var srcEnd = idx.map[lastVis] + 1;
+    var expanded = expandMarkup(state.markdown, srcStart, srcEnd);
+    return {
+      start: expanded[0],
+      end: expanded[1],
+      text: state.markdown.slice(expanded[0], expanded[1])
+    };
+  }
+
+  function considerParagraphTap(ev) {
+    if (state.mode !== "suggesting") return;
+    if (ev.target.closest(".cm-flag, .voice-dock, .popover, .drawer")) return;
+    var sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return;
+    var node = ev.target;
+    if (node.nodeType === 3) node = node.parentElement;
+    if (!node || !node.closest) return;
+    var block = node.closest("p, h1, h2, h3, h4, li, blockquote");
+    if (!block || !els.article.contains(block)) return;
+    var mapped = mapParagraphTap(block.textContent || "");
+    if (mapped.error) return;
+    state.popRange = mapped;
+    state.popKind = null;
+    els.popoverActions.hidden = false;
+    els.popoverForm.hidden = true;
+    var rect = block.getBoundingClientRect();
+    placePopover(rect.left, rect.bottom + 8);
   }
 
   function jumpTo(id) {
@@ -1037,8 +1174,20 @@
     });
     els.article.addEventListener("touchend", function (ev) {
       if (state.mode !== "suggesting") return;
-      setTimeout(function () { considerSelection(ev); }, 340);
+      setTimeout(function () {
+        var sel = window.getSelection();
+        if (sel && !sel.isCollapsed && sel.toString().trim()) considerSelection(ev);
+        else considerParagraphTap(ev);
+      }, 340);
     }, { passive: true });
+    els.article.addEventListener("click", function (ev) {
+      if (state.mode !== "suggesting") return;
+      setTimeout(function () {
+        var sel = window.getSelection();
+        if (sel && !sel.isCollapsed && sel.toString().trim()) return;
+        considerParagraphTap(ev);
+      }, 0);
+    });
     els.article.addEventListener("contextmenu", function (ev) {
       if (state.mode === "suggesting") ev.preventDefault();
     });
@@ -1064,6 +1213,25 @@
         jumpTo(jump.getAttribute("data-jump"));
       }
     });
+
+    window.dispatchEvent(
+      new CustomEvent("steer:ready", {
+        detail: {
+          mode: function () { return state.mode; },
+          setMode: setMode,
+          getMarkdown: currentMarkdown,
+          getPopRange: function () { return state.popRange; },
+          toast: toast,
+          applyVoiceComment: applyVoiceComment,
+          applyVoiceProposal: applyVoiceProposal,
+          syncDrawer: renderDrawer,
+          ensureDrawerVisible: function () {
+            els.drawer.hidden = false;
+            els.workspace.classList.toggle("has-drawer", true);
+          }
+        }
+      })
+    );
   }
 
   bind();

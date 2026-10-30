@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Steer</title>
   <link rel="icon" href="/steer/static/steer-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/steer/static/style.css?v=17">
+  <link rel="stylesheet" href="/steer/static/style.css?v=19">
   <link rel="stylesheet" href="/steer/static/learn.css?v=17">
 </head>
 <body>
@@ -51,13 +51,32 @@
         <p class="drawer-count" id="drawer-count"></p>
       </div>
       <ol class="mark-list" id="mark-list"></ol>
+      <div class="voice-proposals-wrap" id="voice-proposals-wrap" hidden>
+        <h3 class="voice-proposals-title">Proposed (voice)</h3>
+        <p class="voice-proposals-hint">Review each mark before it is applied.</p>
+        <ol class="voice-proposals" id="voice-proposals"></ol>
+      </div>
     </aside>
+  </div>
+
+  <div class="voice-dock" id="voice-dock">
+    <button type="button" class="btn btn-voice-dictation" id="voice-mic-dictation" aria-pressed="false" title="Free dictation pass">
+      <span class="voice-dock-label">Talk through edits</span>
+    </button>
+  </div>
+
+  <div class="voice-dictation-bar" id="voice-dictation-bar" hidden>
+    <p class="voice-dictation-text" id="voice-dictation-text">Listening…</p>
+    <div class="voice-dictation-actions">
+      <button type="button" class="btn btn-touch btn-primary" data-voice-done>Done</button>
+    </div>
   </div>
 
   <div class="popover" id="popover" hidden>
     <div class="popover-actions" id="popover-actions">
       <button type="button" class="btn btn-small" id="pop-comment">Comment</button>
       <button type="button" class="btn btn-small" id="pop-replace">Replace</button>
+      <button type="button" class="btn btn-small btn-voice" id="voice-mic-selection" aria-pressed="false" title="Speak a comment">Mic</button>
     </div>
     <form class="popover-form" id="popover-form" hidden>
       <label class="sr-only" id="popover-label" for="popover-input">Suggestion</label>
@@ -95,8 +114,10 @@
     </div>
   </aside>
 
-  <script src="/steer/static/vendor/marked.min.js?v=17"></script>
-  <script src="/steer/static/app.js?v=17"></script>
-  <script src="/steer/static/learn.js?v=17"></script>
+  <script src="/steer/static/vendor/marked.min.js?v=19"></script>
+  <script src="/steer/static/speech.js?v=19"></script>
+  <script src="/steer/static/voice.js?v=19"></script>
+  <script src="/steer/static/app.js?v=19"></script>
+  <script src="/steer/static/learn.js?v=19"></script>
 </body>
 </html>
