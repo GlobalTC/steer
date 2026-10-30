@@ -7,10 +7,20 @@
   "title_fallback": "Draft",
   "timezone": "America/Denver",
   "tz_label": "MT",
-  "features": {"catalog": true, "learn": true},
-  "brand": {"toolbar_logo": "steer-mark-toolbar.svg", "favicon": "steer-mark.svg"},
+  "features": {
+    "catalog": true,
+    "learn": true
+  },
+  "brand": {
+    "toolbar_logo": "steer-mark-toolbar.svg",
+    "favicon": "steer-mark.svg"
+  },
   "voice_env": "review/.voice.env",
   "notify": [
-    {"name": "STEER", "env": "review/.webhook.env", "why": "this bot's Draft review save ping routine"}
+    {
+      "name": "STEER",
+      "env": "review/.webhook.env",
+      "why": "this bot's Draft review save ping routine"
+    }
   ]
 }

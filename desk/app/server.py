@@ -457,8 +457,11 @@ def notify_summary() -> dict:
             "error": last.get("error") if not last.get("ok") else None,
             "pending": bool(last.get("pending")),
         })
-    failing = [x["name"] for x in targets
-               if x["required"] and (not x["configured"] or x["ok"] is False)]
+    failing = [
+        x["name"]
+        for x in targets
+        if x["required"] and x["ok"] is False
+    ]
     return {"healthy": not failing, "not_notified": failing, "targets": targets}
 
 
@@ -501,6 +504,54 @@ def client_config() -> dict:
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
     allow_reuse_address = True
+
+
+def _desk_origin_bases() -> list[str]:
+    """Allowed Origin / Referer prefixes for this desk (loopback + configured host)."""
+    bases: list[str] = []
+    hosts = {HOST, "127.0.0.1", "localhost"}
+    for host in hosts:
+        for scheme in ("http", "https"):
+            root = "%s://%s:%d" % (scheme, host, PORT)
+            bases.append(root + (BASE_PATH or ""))
+            if BASE_PATH:
+                bases.append(root + "/")
+    return bases
+
+
+def _post_allowed(handler: BaseHTTPRequestHandler, *, allow_multipart: bool) -> tuple[bool, int, str]:
+    """Browser POST CSRF guard: JSON content-type and same-origin Origin/Referer."""
+    ct = (handler.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+    if allow_multipart:
+        if ct not in ("application/json", "multipart/form-data"):
+            return False, 415, "Content-Type must be application/json or multipart/form-data"
+    elif ct != "application/json":
+        return False, 415, "Content-Type must be application/json"
+
+    origin = handler.headers.get("Origin")
+    referer = handler.headers.get("Referer")
+    if not origin and not referer:
+        addr = handler.client_address[0]
+        if addr in ("127.0.0.1", "::1"):
+            return True, 0, ""
+        return False, 403, "Forbidden"
+
+    allowed_origins = set()
+    for host in (HOST, "127.0.0.1", "localhost"):
+        for scheme in ("http", "https"):
+            allowed_origins.add("%s://%s:%d" % (scheme, host, PORT))
+
+    host_hdr = handler.headers.get("Host")
+    if host_hdr:
+        for scheme in ("http", "https"):
+            allowed_origins.add("%s://%s" % (scheme, host_hdr))
+    if origin:
+        if origin.rstrip("/") not in {o.rstrip("/") for o in allowed_origins}:
+            return False, 403, "Forbidden"
+    if referer:
+        if not any(referer.startswith(prefix) for prefix in _desk_origin_bases()):
+            return False, 403, "Forbidden"
+    return True, 0, ""
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -581,6 +632,11 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
         path = normalize_path(path)
+        allow_multipart = path == "/api/transcribe-voice"
+        ok_sec, sec_code, sec_msg = _post_allowed(self, allow_multipart=allow_multipart)
+        if not ok_sec:
+            self._send_json(sec_code, {"ok": False, "error": sec_msg})
+            return
         try:
             if path == "/api/save":
                 try:
@@ -609,6 +665,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if path == "/api/resolve-voice":
                 self._api_resolve_voice()
+                return
+            if path == "/api/reanchor-voice":
+                self._api_reanchor_voice()
                 return
             if path == "/api/transcribe-voice":
                 self._api_transcribe_voice()
@@ -732,9 +791,15 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(markdown, str):
             self._send_json(400, {"ok": False, "error": "markdown is required"})
             return
-        proposals, resolver = resolve_dictation_primary(
-            transcript.strip(), markdown
-        )
+        try:
+            proposals, resolver = resolve_dictation_primary(
+                transcript.strip(), markdown
+            )
+        except Exception:
+            from voice_resolve import resolve_dictation_heuristic
+
+            proposals = resolve_dictation_heuristic(transcript.strip(), markdown)
+            resolver = "heuristic"
         self._send_json(
             200,
             {
@@ -743,6 +808,21 @@ class Handler(BaseHTTPRequestHandler):
                 "resolver": resolver,
             },
         )
+
+    def _api_reanchor_voice(self) -> None:
+        from voice_resolve import reanchor_proposal_dicts
+
+        body = self._read_json_body()
+        markdown = body.get("markdown")
+        raw = body.get("proposals")
+        if not isinstance(markdown, str):
+            self._send_json(400, {"ok": False, "error": "markdown is required"})
+            return
+        if not isinstance(raw, list):
+            self._send_json(400, {"ok": False, "error": "proposals is required"})
+            return
+        updated = reanchor_proposal_dicts(markdown, raw)
+        self._send_json(200, {"ok": True, "proposals": updated})
 
     def _api_webhook_test(self) -> None:
         """Clearly-marked test ping. Body: {"target": "<name>"} (optional)."""
@@ -774,9 +854,13 @@ class Handler(BaseHTTPRequestHandler):
         for t in notify_targets():
             last = state.get(t["name"]) if isinstance(state.get(t["name"]), dict) else {}
             pending = last.get("pending")
-            if isinstance(pending, dict) and pending.get("event") != "test":
-                sent[t["name"]] = deliver(t, pending)
-        self._send_json(200, {"ok": all(sent.values()) if sent else True, "retried": sent, "notify": notify_summary()})
+            if not isinstance(pending, dict) or pending.get("event") == "test":
+                continue
+            if not t["required"] and not (t["url"] and t["key"]):
+                continue
+            sent[t["name"]] = deliver(t, pending)
+        ok = all(sent.values()) if sent else True
+        self._send_json(200, {"ok": ok, "retried": sent, "notify": notify_summary()})
 
     def _api_doc(self) -> None:
         self._send_json(200, doc_snapshot())
@@ -858,19 +942,32 @@ class Handler(BaseHTTPRequestHandler):
         url = body.get("url") if isinstance(body.get("url"), str) else ""
         key = body.get("key") if isinstance(body.get("key"), str) else ""
         header = body.get("header") if isinstance(body.get("header"), str) else "Authorization"
+        target_name = body.get("target") if isinstance(body.get("target"), str) else ""
         url, key, header = url.strip(), key.strip(), (header or "Authorization").strip()
+        target_name = target_name.strip()
         if not url or not key:
             self._send_json(400, {"ok": False, "error": "url and key are required"})
             return
+        env_path = WEBHOOK_ENV
+        if target_name:
+            match = None
+            for t in notify_targets():
+                if t["name"] == target_name:
+                    match = t["env_path"]
+                    break
+            if match is None:
+                self._send_json(404, {"ok": False, "error": "No such notify target"})
+                return
+            env_path = match
         text_env = (
             "WEBHOOK_URL=%s\nWEBHOOK_KEY=%s\nWEBHOOK_HEADER=%s\n" % (url, key, header)
         )
-        atomic_write_text(WEBHOOK_ENV, text_env)
+        atomic_write_text(env_path, text_env)
         try:
-            os.chmod(WEBHOOK_ENV, 0o600)
+            os.chmod(env_path, 0o600)
         except OSError:
             pass
-        self._send_json(200, {"ok": True, "configured": True})
+        self._send_json(200, {"ok": True, "configured": True, "target": target_name or DESK_NAME})
 
     def _api_save(self) -> None:
         client = self.address_string()
