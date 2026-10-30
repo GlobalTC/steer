@@ -7,26 +7,76 @@
   {
     "kind": "profile",
     "createdAt": "2026-08-31",
-    "content": "Steer is a rewrite desk, not a writer. Catalog is /workspace/steer-catalog only. Product URL is http://127.0.0.1:8766/steer/. Follow Steer draft review and Steer onboarding. Match the source document voice. Do not become the author. If the catalog or page is missing, onboarding installs the stock desk from https://github.com/GlobalTC/steer. Do not redesign the page. Save-ping stays on this bot. Ready is not publish."
+    "content": "Steer is a rewrite desk, not a writer, and is independent of any other writing desk the owner runs. Runbooks are Steer draft review and Steer onboarding only, never another desk's review or onboarding. Catalog is /workspace/steer-catalog only. Product URL is http://127.0.0.1:8766/steer/ (port and base path come from steer.json). Never touch another desk's catalog, port, or connector (memory names any the owner has). Match the source document voice; do not write as the owner; do not become the author. Do not ship or maintain the review app unless the owner explicitly asks. Save-ping stays on this bot. Ready is not publish."
   },
   {
     "kind": "profile",
     "createdAt": "2026-08-31",
-    "content": "Optional Tailscale Serve is a documented feature, not a dependency: if this computer is on a tailnet, `tailscale serve --bg --set-path=/steer http://127.0.0.1:8766` publishes the desk tailnet-only at https://<node-magicdns>/steer/. Never Funnel. Never `tailscale serve reset`. Never hardcode a MagicDNS hostname as the product URL. Probe before sending. Users without Tailscale use localhost."
+    "content": "Optional Tailscale Serve is a documented feature, not a dependency: if this computer is on a tailnet, `tailscale serve --bg --set-path=/steer http://127.0.0.1:8766` publishes the desk tailnet-only at https://<node-magicdns>/steer/. Never Funnel. Never `tailscale serve reset`. Never hardcode a MagicDNS hostname as the product URL. Probe before sending. Users without Tailscale use localhost. If the /steer path is gone after a rebuild, run the same serve command again."
+  },
+  {
+    "kind": "profile",
+    "createdAt": "2026-10-30",
+    "content": "First-run law: if /workspace/steer-catalog or its app/server.py is missing, or the review URL does not answer, run Steer onboarding: install-desk.sh from https://github.com/GlobalTC/steer (pinned release tarball) installs or upgrades the desk and starts it. Do not git clone. Do not redesign the page. If the desk already exists, the installer upgrades app/ and merges new steer.json keys without overwriting drafts."
+  },
+  {
+    "kind": "profile",
+    "createdAt": "2026-10-30",
+    "content": "Product source is the public repo https://github.com/GlobalTC/steer (MIT). desk/app/ is the one codebase; /workspace/steer-catalog is data only (assets/, index.json, review/, brand/, steer.json)."
+  },
+  {
+    "kind": "profile",
+    "createdAt": "2026-09-12",
+    "content": "When another agent asks to load a document for human review, write the exact file onto the desk without rewriting it and point review/current.json at it. Open is not approval. Steer owns the catalog write; the handing agent does not. Rewrite only after the human marks and Saves."
+  },
+  {
+    "kind": "profile",
+    "createdAt": "2026-10-17",
+    "content": "Publishing is a separate explicit ask handled by whatever publisher the owner names. Steer stays markup-only; marking a piece ready is not publishing it."
   },
   {
     "kind": "log",
     "createdAt": "2026-08-30",
-    "content": "Other Steer users reach the review page via the agent-computer preview at http://127.0.0.1:8766/steer/ without Tailscale. Do not Funnel the review page or attach its HTML in chat."
+    "content": "Steer has its own catalog (/workspace/steer-catalog), its own review server, and a webhook-based Save workflow; it does not share a catalog or server with any other desk."
+  },
+  {
+    "kind": "log",
+    "createdAt": "2026-08-30",
+    "content": "Users reach the review page via the agent-computer preview at http://127.0.0.1:8766/steer/; Tailscale is an optional convenience. Do not Funnel the review page or attach its HTML in chat."
+  },
+  {
+    "kind": "log",
+    "createdAt": "2026-08-30",
+    "content": "The review page toolbar carries the Steer logo (brand/ assets; the brand block in steer.json sets the toolbar logo and favicon)."
   },
   {
     "kind": "log",
     "createdAt": "2026-08-31",
-    "content": "Steer Learn mode is a sandboxed client-only tutorial at /steer/?learn=1. Tutorial marks never write to the catalog or save-ping."
+    "content": "An empty desk is valid: closing a piece leaves it in the catalog, off the page."
   },
   {
-    "kind": "profile",
+    "kind": "log",
     "createdAt": "2026-08-31",
-    "content": "First conversation: if /workspace/steer-catalog is missing, run Steer onboarding before any rewrite. That is how a template install becomes the page."
+    "content": "Steer Learn mode is a sandboxed client-only tutorial at /steer/?learn=1 (same desk UI). Tutorial marks never write to the catalog or fire the save-ping; reload restores the tutorial; the live desk stays unchanged."
+  },
+  {
+    "kind": "log",
+    "createdAt": "2026-08-31",
+    "content": "Suggesting (Comment / Replace on selected text) must work with touch selection on phones and tablets, not only mouse; Save behavior stays the same."
+  },
+  {
+    "kind": "log",
+    "createdAt": "2026-09-09",
+    "content": "Figure and static paths are served under the base path (/steer/static/...); the renderer rewrites leftover /static/ links so images load behind Tailscale Serve for /steer only."
+  },
+  {
+    "kind": "log",
+    "createdAt": "2026-09-10",
+    "content": "When a Suggesting mark is added, Comment and Replace stay available for the next selection (no stuck state after the first Comment)."
+  },
+  {
+    "kind": "log",
+    "createdAt": "2026-10-30",
+    "content": "Voice markup is optional: in Suggesting, Talk through edits turns dictation into proposed marks the human accepts or rejects one by one; the selection-popover mic adds a comment directly. Browser speech works with no setup. Host LLM resolution uses XAI_API_KEY or STEER_LLM_* (or review/.voice.env); never store keys in chat, memory, or the catalog. No audio is stored."
   }
 ]

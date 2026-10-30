@@ -20,18 +20,18 @@ If Save does not wake Steer, the catalog is missing, the review server is missin
 - **Review page** is the only review surface: Viewing, Editing, Suggesting. Suggesting creates **Comment** and **Replace** marks (`{==phrase==}{>>comment<<}` and `{~~old~>new~~}` plus `id` / `by` / `at`). Insert, delete, and highlight markup (`{++ ++}`, `{-- --}`, `{== ==}` alone) are Editing-mode raw markup only.
 - **Voice markup (optional):** In Suggesting, **Talk through edits** resolves dictation into proposed marks (accept/reject each). **Mic** on the selection popover adds a comment immediately. LLM resolution uses host `XAI_API_KEY` or `STEER_LLM_*` / optional `VOICE_RESOLVE_URL` in `review/.voice.env`; Web Speech or server `VOICE_STT_*` for STT.
 - **Product URL** is the agent-computer preview: `http://127.0.0.1:8766/steer/` (Learn sandbox: `http://127.0.0.1:8766/steer/?learn=1`).
-- **Optional Tailscale Serve** is a supported feature, not a dependency. If this computer is on a tailnet, publish the desk tailnet-only with `tailscale serve --bg --set-path=/steer http://127.0.0.1:8766`. That appends `/steer`; it does not replace other paths. Operators may then use `https://<node-magicdns>/steer/`. Never Funnel. Never `tailscale serve reset`. Never hardcode a MagicDNS hostname as the product URL.
+- **Optional Tailscale Serve** is a supported feature, not a dependency. If this computer is on a tailnet, publish the desk tailnet-only with `tailscale serve --bg --set-path=/steer http://127.0.0.1:8766`. That appends `/steer`; it does not replace other paths. Operators may then use `https://<node-magicdns>/steer/`. Never Funnel. Never `tailscale serve reset`. Never hardcode a MagicDNS hostname as the product URL. If the `/steer` path is gone after a rebuild, run the same `tailscale serve` command again.
 - **Save** writes the asset and POSTs the webhook so Steer wakes. The open tab live-updates when the rewrite lands, unless it has unsaved edits.
 - Do **not** attach an `.html` file in chat. Do **not** paste the full draft into chat when the page will do.
-- Do **not** write another product's catalog, port, or webhook env.
+- Do **not** write another product's or desk's catalog, port, connector, or webhook env (memory names any the owner has).
 
 ## Start a draft
 
-1. If `/workspace/steer-catalog` or its `app/server.py` is missing, or `http://127.0.0.1:8766/steer/` does not answer, run [Steer onboarding](sand-workflow:steer-onboarding) and stop until the page is up.
+1. If `/workspace/steer-catalog` or its `app/server.py` (or the app path saved in memory) is missing, or `http://127.0.0.1:8766/steer/` does not answer, run [Steer onboarding](sand-workflow:steer-onboarding) and stop until the page is up.
 2. Write the markdown to the Steer catalog asset. Register it in `index.json` (`status: draft`, `text_status: full`).
 3. Point the review page at that asset (`review/current.json`).
-4. Confirm the review page answers (`curl -sS -m 2 http://127.0.0.1:8766/steer/`). If it does not, start `python3 /workspace/steer-catalog/start.py` so port 8766 is listening. Do not send a spinning link.
-5. Send the localhost review URL, not a file. If Serve `/steer` is configured, probe the tailnet URL too and you MAY also send that as a convenience for operators on the tailnet. One sentence on what to do: mark up, then Save. Do not require Tailscale.
+4. Confirm the review page answers (`curl -sS -m 2 http://127.0.0.1:8766/steer/`). If it does not, start `python3 /workspace/steer-catalog/start.py` so the port in `steer.json` (default 8766) is listening (or the launcher named in memory). If the status bar or `/steer/api/webhook-status` says someone was not notified, say so plainly; `review/webhook.log` has the reason. Do not send a spinning link.
+5. Send the localhost review URL, not a file. If Serve `/steer` is configured, probe the tailnet URL too (through this computer's Tailscale proxy if it uses userspace networking) and you MAY also send that as a convenience for operators on the tailnet. One sentence on what to do: mark up, then Save. Do not require Tailscale.
 
 ## While it is in review
 
@@ -61,4 +61,8 @@ Match the source document. Do not impose a house style. Do not write as a partic
 - Redesign, restyle, or rewrite the review app. If the desk is missing, install the stock copy from the product repo via onboarding. That is first-run, not product-engineering chat.
 - Minute-poll, keepalive cron, or a webhook key form on the review page.
 - Name a specific person in the save-ping prompt.
+- Handle another desk's mailbox, catalog, or Saves.
 - Funnel the review page, or run `tailscale serve reset`.
+
+## Starting the Steer page
+Before sending a Steer link, probe the review URL (`http://127.0.0.1:<port><base_path>/` from `steer.json`; default `http://127.0.0.1:8766/steer/`). If it doesn't answer, start it with `python3 /workspace/steer-catalog/start.py` (or the launcher named in memory, if there is one). If memory says the owner wants it stopped after a review, stop it when the review is done.

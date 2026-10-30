@@ -12,13 +12,13 @@ One-time setup so a new Steer actually is the desk, not a prompt with no page. D
 Run it when any of these is true:
 
 - This Steer has never been wired.
-- `/workspace/steer-catalog` is missing, or `app/server.py` is missing from it.
+- `/workspace/steer-catalog` is missing, or `app/server.py` is missing from it (or from the app path saved in memory, if the owner keeps code outside the catalog).
 - `http://127.0.0.1:8766/steer/` does not answer.
 - Save no longer wakes the desk.
 
 Installing the stock desk from the product repo **is** the product. Do not skip it. Do not redesign the page.
 
-Never write another product's `review/.webhook.env`. Overwriting it steals every Save on that desk.
+Never run another desk's onboarding, and never write another desk's `review/.webhook.env` (memory names any the owner has). Overwriting it steals every Save on that desk.
 
 ## 1. First run: install the desk
 
@@ -26,17 +26,16 @@ Product repo (source of the page, server, sample draft, logos): `https://github.
 
 Catalog path: `/workspace/steer-catalog`
 
-Run **`install-desk.sh`** from the product repo (pinned release tarball, not `main`). It installs or upgrades `app/` and `start.py`, merges new `steer.json` keys (including `brand` and `voice_env`) without clobbering yours, adds missing `brand/` assets, and starts the server using the **port and base path in `steer.json`**. It fails if that port is already serving a different desk.
+Run **`install-desk.sh`** from the product repo. Download the script from `main`; it pins the release tarball via `STEER_TAG` (default in the script). It installs or upgrades `app/` and `start.py`, merges new `steer.json` keys (including `brand` and `voice_env`) without clobbering yours, adds missing `brand/` assets, and starts the server using the **port and base path in `steer.json`**. It fails if that port is already serving a different desk.
 
-       curl -fsSL https://raw.githubusercontent.com/GlobalTC/steer/main/install-desk.sh | bash
+       curl -fsSL https://raw.githubusercontent.com/GlobalTC/steer/main/install-desk.sh -o /tmp/install-desk.sh
+       bash /tmp/install-desk.sh
 
-Or, from a checkout:
+(`STEER_TAG` overrides the release. If memory says the app code lives outside the catalog, do not let the installer create a second copy in the catalog; upgrade the app path from memory instead. The catalog is data only.)
 
-       bash install-desk.sh
+If the installer reports the port is serving a different desk, stop and tell the owner; do not pick another port silently. Do not `git clone` the product repo onto the computer. Do not copy `review/server.py` or legacy `review/static/` — code lives in `app/` only.
 
-Do not `git clone` the product repo onto the computer. Do not copy `review/server.py` or legacy `review/static/` — code lives in `app/` only.
-
-Confirm `steer-slop-sample` is the current draft (`review/current.json`) when the catalog is new.
+Confirm `steer-slop-sample` is the current draft (`review/current.json`) when the catalog is new, so the first open is something to mark, not an empty parking page. If `current.json` is missing, write it pointing at `assets/steer-slop-sample.md`.
 
 ## 2. Start the page
 
@@ -84,7 +83,10 @@ Follow [Steer draft review](sand-workflow:steer-draft-review). Point `current.js
 - Ask a reviewer to invent or type a webhook URL on the page.
 - Resume minute polling because SSE exists. SSE is for the tab, not for Steer.
 - Store the sender key in the transcript.
-- Write another desk's `.webhook.env`.
+- Use another desk's connector or write its `.webhook.env`.
 - Create a second save-ping on another bot.
 - Funnel the review page, or run `tailscale serve reset`.
 - `git clone` the product repo onto the computer. Use the tarball.
+
+## Starting the Steer page
+Before sending a Steer link, probe the review URL (`http://127.0.0.1:<port><base_path>/` from `steer.json`; default `http://127.0.0.1:8766/steer/`). If it doesn't answer, start it with `python3 /workspace/steer-catalog/start.py` (or the launcher named in memory, if there is one). If memory says the owner wants it stopped after a review, stop it when the review is done.
