@@ -4,6 +4,9 @@
 (function (global) {
   "use strict";
 
+  var CFG = global.STEER_CONFIG || {};
+  var BASE = typeof CFG.base === "string" ? CFG.base : "/steer";
+
   var configPromise = null;
   var cachedConfig = null;
 
@@ -17,7 +20,7 @@
   function loadConfig() {
     if (cachedConfig) return Promise.resolve(cachedConfig);
     if (configPromise) return configPromise;
-    configPromise = fetch("/steer/api/voice-config")
+    configPromise = fetch(BASE + "/api/voice-config")
       .then(function (res) {
         return res.json();
       })
@@ -108,7 +111,7 @@
     var uploadUrl =
       (options && options.uploadUrl) ||
       (cachedConfig && cachedConfig.transcribe_path) ||
-      "/steer/api/transcribe-voice";
+      BASE + "/api/transcribe-voice";
     var stream = null;
     var recorder = null;
     var chunks = [];
@@ -235,7 +238,7 @@
       return createRecognizer(
         Object.assign({}, options || {}, {
           backend: backend,
-          uploadUrl: cfg.transcribe_path || "/steer/api/transcribe-voice"
+          uploadUrl: cfg.transcribe_path || BASE + "/api/transcribe-voice"
         })
       );
     });

@@ -4,6 +4,9 @@
 (function () {
   "use strict";
 
+  var CFG = window.STEER_CONFIG || {};
+  var BASE = typeof CFG.base === "string" ? CFG.base : "/steer";
+
   var api = null;
   var dictationRecognizer = null;
   var selectionRecognizer = null;
@@ -208,7 +211,7 @@
     }
     api.toast("Resolving marks…");
     try {
-      var res = await fetch("/steer/api/resolve-voice", {
+      var res = await fetch(BASE + "/api/resolve-voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
