@@ -47,3 +47,7 @@ Tests:
 - `brand/` — logos, tutorial text, figures (data).
 - `app/` — the STEER app (server + page). Built from one codebase; an update replaces this folder only, never your drafts.
 - `review/` — runtime only. `review/current.json` is the active piece; `review/webhook.log` says whether each Save notified the bot.
+
+## License
+
+STEER is released under the [MIT License](../LICENSE) at the repo root. Copyright (c) 2026 Bill French (832Labs).

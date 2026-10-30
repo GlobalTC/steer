@@ -64,6 +64,4 @@ Tailnet only. Never Funnel. Never `tailscale serve reset`.
 
 ## License
 
-Apache License, Version 2.0. See [`LICENSE`](LICENSE) (authoritative) and [`LICENSE.md`](LICENSE.md).
-
-Copyright 2026 832 Labs.
+[MIT License](LICENSE). Copyright (c) 2026 Bill French (832Labs). A readable copy is in [`LICENSE.md`](LICENSE.md).
