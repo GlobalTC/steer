@@ -3,7 +3,7 @@
 set -euo pipefail
 
 DEST="${STEER_CATALOG:-/workspace/steer-catalog}"
-STEER_TAG="${STEER_TAG:-v2026.10.30-1}"
+STEER_TAG="${STEER_TAG:-v2026.10.30-2}"
 TARBALL="${STEER_TARBALL:-https://github.com/GlobalTC/steer/archive/refs/tags/${STEER_TAG}.tar.gz}"
 
 tmp=$(mktemp -d)

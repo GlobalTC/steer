@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
+import tempfile
 import threading
 import unittest
 from pathlib import Path
@@ -11,7 +13,6 @@ from unittest.mock import patch
 from urllib.request import Request, urlopen
 
 APP = Path(__file__).resolve().parent.parent
-DESK = APP.parent
 sys.path.insert(0, str(APP))
 
 import server as steer_server  # noqa: E402
@@ -30,7 +31,15 @@ def _multipart_body(boundary: str, audio: bytes) -> bytes:
 class TestTranscribeMultipart(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        steer_server.configure(["--catalog", str(DESK)])
+        cls._catalog_dir = tempfile.mkdtemp(prefix="steer-transcribe-test-")
+        cls.catalog = Path(cls._catalog_dir)
+        (cls.catalog / "review").mkdir(parents=True)
+        (cls.catalog / "steer.json").write_text("{}\n", encoding="utf-8")
+        steer_server.configure(["--catalog", str(cls.catalog)])
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls._catalog_dir, ignore_errors=True)
 
     def test_parse_multipart_field_roundtrip(self) -> None:
         boundary = "SteerTestBoundary"

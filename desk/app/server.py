@@ -549,7 +549,9 @@ def _post_allowed(handler: BaseHTTPRequestHandler, *, allow_multipart: bool) -> 
         if origin.rstrip("/") not in {o.rstrip("/") for o in allowed_origins}:
             return False, 403, "Forbidden"
     if referer:
-        if not any(referer.startswith(prefix) for prefix in _desk_origin_bases()):
+        ref = urlparse(referer)
+        ref_origin = "%s://%s" % (ref.scheme, ref.netloc)
+        if ref_origin.rstrip("/") not in {o.rstrip("/") for o in allowed_origins}:
             return False, 403, "Forbidden"
     return True, 0, ""
 
