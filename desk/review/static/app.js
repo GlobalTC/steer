@@ -1224,7 +1224,11 @@
           toast: toast,
           applyVoiceComment: applyVoiceComment,
           applyVoiceProposal: applyVoiceProposal,
-          syncDrawer: renderDrawer
+          syncDrawer: renderDrawer,
+          ensureDrawerVisible: function () {
+            els.drawer.hidden = false;
+            els.workspace.classList.toggle("has-drawer", true);
+          }
         }
       })
     );

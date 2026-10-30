@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import cgi
 import json
 import os
 import sys
@@ -348,6 +349,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/resolve-voice":
                 self._api_resolve_voice()
                 return
+            if path == "/api/transcribe-voice":
+                self._api_transcribe_voice()
+                return
         except json.JSONDecodeError:
             self._send_json(400, {"ok": False, "error": "Invalid JSON"})
             return
@@ -456,14 +460,65 @@ class Handler(BaseHTTPRequestHandler):
 
     def _api_voice_config(self) -> None:
         from voice_resolve import voice_llm_configured
+        from voice_stt import stt_configured
 
         self._send_json(
             200,
             {
-                "speech": "browser",
+                "browser_stt": True,
+                "server_stt_configured": stt_configured(),
                 "llm_resolve": voice_llm_configured() or voice_resolve_configured(),
+                "transcribe_path": BASE_PATH + "/api/transcribe-voice",
             },
         )
+
+    def _api_transcribe_voice(self) -> None:
+        from voice_stt import stt_configured, transcribe_audio
+
+        if not stt_configured():
+            self._send_json(
+                503,
+                {
+                    "ok": False,
+                    "error": (
+                        "Server speech-to-text is not configured. "
+                        "Set VOICE_STT_URL in review/.voice.env."
+                    ),
+                },
+            )
+            return
+        content_type = self.headers.get("Content-Type") or ""
+        audio_bytes = b""
+        audio_type = "application/octet-stream"
+        try:
+            if content_type.startswith("multipart/form-data"):
+                form = cgi.FieldStorage(
+                    fp=self.rfile,
+                    headers=self.headers,
+                    environ={
+                        "REQUEST_METHOD": "POST",
+                        "CONTENT_TYPE": content_type,
+                    },
+                )
+                if "audio" not in form:
+                    self._send_json(400, {"ok": False, "error": "audio field is required"})
+                    return
+                item = form["audio"]
+                audio_bytes = item.file.read() if item.file else b""
+                audio_type = item.type or audio_type
+            else:
+                length = int(self.headers.get("Content-Length") or "0")
+                audio_bytes = self.rfile.read(length) if length else b""
+                audio_type = content_type.split(";")[0].strip() or audio_type
+        except Exception as exc:
+            self._send_json(400, {"ok": False, "error": str(exc)})
+            return
+        try:
+            transcript = transcribe_audio(audio_bytes, content_type=audio_type)
+        except (RuntimeError, ValueError) as exc:
+            self._send_json(502, {"ok": False, "error": str(exc)})
+            return
+        self._send_json(200, {"ok": True, "transcript": transcript})
 
     def _api_resolve_voice(self) -> None:
         from voice_resolve import proposals_to_json, resolve_dictation
@@ -514,6 +569,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         mode = body.get("mode") if isinstance(body.get("mode"), str) else "viewing"
         comments = body.get("comments") if isinstance(body.get("comments"), list) else []
+        from revise_hints import revise_hints_from_comments
+
+        revise_hints = revise_hints_from_comments(comments)
 
         previous = read_json(LATEST) or {}
         generation = int(previous.get("generation") or 0) + 1
@@ -528,6 +586,8 @@ class Handler(BaseHTTPRequestHandler):
             "generation": generation,
             "asset_id": spec.get("id"),
         }
+        if revise_hints:
+            record["revise_hints"] = revise_hints
 
         # Article file first (source of truth), then the save record.
         if not markdown.endswith("\n"):
@@ -539,16 +599,19 @@ class Handler(BaseHTTPRequestHandler):
             LATEST,
             json.dumps(record, ensure_ascii=False, indent=2) + "\n",
         )
+        webhook_payload = {
+            "event": "save",
+            "generation": generation,
+            "saved_at": saved_at,
+            "mode": mode,
+            "comment_count": len(comments),
+            "production_ready": False,
+        }
+        if revise_hints:
+            webhook_payload["revise_hints"] = revise_hints
         threading.Thread(
             target=ping_webhook,
-            args=({
-                "event": "save",
-                "generation": generation,
-                "saved_at": saved_at,
-                "mode": mode,
-                "comment_count": len(comments),
-                "production_ready": False,
-            },),
+            args=(webhook_payload,),
             daemon=True,
         ).start()
         self._send_json(200, {

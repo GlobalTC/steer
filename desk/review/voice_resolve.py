@@ -39,6 +39,8 @@ class MarkProposal:
     excerpt: str = ""
     replace_with: str = ""
     source_clause: str = ""
+    anchor_scope: Literal["phrase", "paragraph", "general"] = "general"
+    paragraph_index: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d = {
@@ -48,6 +50,8 @@ class MarkProposal:
             "excerpt": self.excerpt,
             "replace_with": self.replace_with,
             "source_clause": self.source_clause,
+            "anchor_scope": self.anchor_scope,
+            "paragraph_index": self.paragraph_index,
         }
         if self.anchor:
             d["anchor"] = asdict(self.anchor)
@@ -176,12 +180,15 @@ def resolve_clause_heuristic(
                 excerpt=text,
                 replace_with=new_p,
                 source_clause=clause,
+                anchor_scope="phrase",
+                paragraph_index=para,
             )
         return MarkProposal(
             kind="general",
             body=clause.strip(),
             confidence=0.35,
             source_clause=clause,
+            anchor_scope="general",
         )
 
     target_phrase = quotes[0] if quotes else (cut or "")
@@ -199,6 +206,7 @@ def resolve_clause_heuristic(
             body=clause.strip(),
             confidence=0.4,
             source_clause=clause,
+            anchor_scope="general",
         )
 
     if target_phrase:
@@ -217,6 +225,8 @@ def resolve_clause_heuristic(
                 anchor=Anchor(start, end, text),
                 excerpt=text,
                 source_clause=clause,
+                anchor_scope="phrase",
+                paragraph_index=para,
             )
 
     if para is not None:
@@ -229,6 +239,8 @@ def resolve_clause_heuristic(
                 anchor=Anchor(p.start, p.end, src[p.start : p.end]),
                 excerpt=p.text[:140],
                 source_clause=clause,
+                anchor_scope="paragraph",
+                paragraph_index=para,
             )
 
     return MarkProposal(
@@ -236,6 +248,7 @@ def resolve_clause_heuristic(
         body=note,
         confidence=0.3,
         source_clause=clause,
+        anchor_scope="general",
     )
 
 

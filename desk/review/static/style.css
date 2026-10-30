@@ -809,6 +809,12 @@ body.is-learn .catalog-panel {
   color: var(--muted);
   font-style: italic;
 }
+.voice-proposal-scope {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  color: var(--ink);
+  font-weight: 600;
+}
 .voice-proposal-actions {
   display: flex;
   gap: 0.5rem;

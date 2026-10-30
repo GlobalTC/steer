@@ -77,6 +77,11 @@ class TestAnchoring(unittest.TestCase):
         self.assertEqual(proposal.kind, "comment")
         self.assertIsNotNone(proposal.anchor)
         self.assertLess(proposal.confidence, ANCHOR_CONFIDENCE_MIN)
+        self.assertEqual(proposal.anchor_scope, "paragraph")
+        self.assertEqual(proposal.paragraph_index, 1)
+        d = proposal.to_dict()
+        self.assertEqual(d["anchor_scope"], "paragraph")
+        self.assertEqual(d["paragraph_index"], 1)
 
     def test_map_phrase_respects_paragraph_scope(self) -> None:
         mapped = map_phrase(
