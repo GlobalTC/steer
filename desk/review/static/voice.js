@@ -16,14 +16,6 @@
     return document.getElementById(id);
   }
 
-  function isQaMode() {
-    try {
-      return /(?:^|[?&])steer_qa=1(?:&|$)/.test(location.search);
-    } catch (e) {
-      return false;
-    }
-  }
-
   function bindApi(detail) {
     api = detail;
     wireUi();
@@ -199,13 +191,10 @@
   }
 
   function scopeLabel(p) {
-    if (p.anchor_scope === "paragraph" && p.paragraph_index != null) {
-      return "Paragraph " + (p.paragraph_index + 1);
+    if (p.anchor_scope === "phrase" || (p.anchor && p.kind !== "general")) {
+      return "Phrase anchor";
     }
-    if (p.anchor_scope === "phrase") {
-      return "Phrase";
-    }
-    return "Unanchored";
+    return "General note (unanchored)";
   }
 
   async function resolveDictation() {
@@ -272,13 +261,6 @@
         ex.textContent = p.excerpt.replace(/\s+/g, " ").slice(0, 120);
         li.appendChild(ex);
       }
-      if (p.anchor_scope === "paragraph" && p.excerpt) {
-        var para = document.createElement("p");
-        para.className = "voice-proposal-scope";
-        para.textContent =
-          "Whole paragraph: " + p.excerpt.replace(/\s+/g, " ").slice(0, 160);
-        li.appendChild(para);
-      }
       var actions = document.createElement("div");
       actions.className = "voice-proposal-actions";
       if (p._status === "proposed") {
@@ -334,15 +316,4 @@
     bindApi(ev.detail);
   });
 
-  if (isQaMode()) {
-    window.__steerInjectVoiceProposals = function (items) {
-      if (!api) return;
-      proposed = (items || []).map(function (p, i) {
-        p._pid = "p" + i + "-" + Date.now();
-        p._status = "proposed";
-        return p;
-      });
-      renderProposals();
-    };
-  }
 })();

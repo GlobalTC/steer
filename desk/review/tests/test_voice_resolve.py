@@ -65,23 +65,16 @@ class TestAnchoring(unittest.TestCase):
         self.assertIsNotNone(p.anchor)
         self.assertIn("punchier", (p.excerpt or "").lower())
 
-    def test_paragraph_only_gets_whole_block_below_threshold(self) -> None:
+    def test_paragraph_only_without_phrase_is_general(self) -> None:
         idx = bvi(SAMPLE)
-        p = paragraph_by_index(SAMPLE, 1, idx)
-        self.assertIsNotNone(p)
         proposal = resolve_clause_heuristic(
             "In the second paragraph, tighten the wording.",
             SAMPLE,
             idx,
         )
-        self.assertEqual(proposal.kind, "comment")
-        self.assertIsNotNone(proposal.anchor)
-        self.assertLess(proposal.confidence, ANCHOR_CONFIDENCE_MIN)
-        self.assertEqual(proposal.anchor_scope, "paragraph")
-        self.assertEqual(proposal.paragraph_index, 1)
-        d = proposal.to_dict()
-        self.assertEqual(d["anchor_scope"], "paragraph")
-        self.assertEqual(d["paragraph_index"], 1)
+        self.assertEqual(proposal.kind, "general")
+        self.assertIsNone(proposal.anchor)
+        self.assertEqual(proposal.anchor_scope, "general")
 
     def test_map_phrase_respects_paragraph_scope(self) -> None:
         mapped = map_phrase(
