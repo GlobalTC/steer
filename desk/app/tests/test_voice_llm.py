@@ -8,8 +8,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-REVIEW = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REVIEW))
+APP = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(APP))
 
 from voice_llm import host_chat_configured, resolve_dictation_primary  # noqa: E402
 

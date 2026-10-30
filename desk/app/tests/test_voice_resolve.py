@@ -6,8 +6,8 @@ import sys
 import unittest
 from pathlib import Path
 
-REVIEW = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REVIEW))
+APP = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(APP))
 
 from mark_index import map_phrase, paragraph_by_index  # noqa: E402
 from mark_index import build_visible_index as bvi  # noqa: E402

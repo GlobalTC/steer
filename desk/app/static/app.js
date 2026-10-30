@@ -1,6 +1,11 @@
 (function () {
   "use strict";
 
+  // One codebase, many desks: the server injects STEER_CONFIG into index.html.
+  var CFG = window.STEER_CONFIG || {};
+  var BASE = typeof CFG.base === "string" ? CFG.base : "/steer";
+  var VERSION = CFG.version || "0";
+
   var AUTHOR = "You";
   var TITLE_FALLBACK = "Draft";
 
@@ -30,8 +35,32 @@
     popRange: null,
     idle: false,
     docId: "",
-    catalogOpen: false
+    catalogOpen: false,
+    baseVersion: 0,
+    confirmedAt: null,
+    saveError: null,
+    saving: false,
+    pendingDraft: null,
+    notify: null
   };
+
+  // Webhook delivery (2026-10-18): who did NOT hear about the last save/ready.
+  function notifyProblems() {
+    var n = state.notify;
+    if (!n || !n.targets || isLearn()) return [];
+    var out = [];
+    n.targets.forEach(function (t) {
+      if (!t.required) return;
+      if (!t.configured) out.push({ name: t.name, why: "not connected" + (t.why ? " (" + t.why + ")" : "") });
+      else if (t.ok === false) out.push({ name: t.name, why: t.error || "delivery failed" });
+    });
+    return out;
+  }
+
+  // Unsaved-draft autosave (2026-10-18): every change is kept in localStorage,
+  // keyed by piece + the asset version the edits started from, until the
+  // server confirms a save. A failed save never loses comments or edits.
+  var DRAFT_PREFIX = "steer-draft:";
 
   var els = {};
 
@@ -53,17 +82,151 @@
     }, isError ? 5600 : 2800);
   }
 
+  function formatClock(iso) {
+    try {
+      return new Date(iso).toLocaleTimeString("en-US", {
+        timeZone: CFG.timezone || "America/Denver",
+        hour: "numeric",
+        minute: "2-digit"
+      }) + " " + (CFG.tz_label || "MT");
+    } catch (e) {
+      return iso;
+    }
+  }
+
+  function draftKey(id, version) {
+    return DRAFT_PREFIX + id + ":" + (version || 0);
+  }
+
+  function draftKeys(id) {
+    var keys = [];
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf(DRAFT_PREFIX + id + ":") === 0) keys.push(k);
+      }
+    } catch (e) {}
+    return keys;
+  }
+
+  function storeDraft() {
+    if (isLearn() || !state.docId || !state.dirty) return;
+    try {
+      localStorage.setItem(draftKey(state.docId, state.baseVersion), JSON.stringify({
+        id: state.docId,
+        version: state.baseVersion,
+        markdown: currentMarkdown(),
+        mode: state.mode,
+        at: isoNow()
+      }));
+    } catch (e) {}
+  }
+
+  function clearDrafts(id) {
+    draftKeys(id).forEach(function (k) {
+      try { localStorage.removeItem(k); } catch (e) {}
+    });
+  }
+
+  function newestDraft(id) {
+    var best = null;
+    draftKeys(id).forEach(function (k) {
+      try {
+        var d = JSON.parse(localStorage.getItem(k));
+        if (d && typeof d.markdown === "string" && (!best || String(d.at) > String(best.at))) best = d;
+      } catch (e) {}
+    });
+    return best;
+  }
+
+  function offerRestore() {
+    var d = newestDraft(state.docId);
+    if (!d || d.markdown === state.markdown) {
+      state.pendingDraft = null;
+      els.restoreBanner.hidden = true;
+      return;
+    }
+    state.pendingDraft = d;
+    var msg = "Unsaved edits from " + formatSaved(d.at) + " are kept in this browser.";
+    if (String(d.version) !== String(state.baseVersion)) {
+      msg += " The article changed since then; restoring puts your version back in its place.";
+    }
+    els.restoreMsg.textContent = msg;
+    els.restoreBanner.hidden = false;
+  }
+
+  function restoreDraft() {
+    var d = state.pendingDraft;
+    if (!d) return;
+    state.markdown = d.markdown;
+    if (state.mode === "editing") els.editor.value = d.markdown;
+    clearDrafts(state.docId);
+    state.pendingDraft = null;
+    els.restoreBanner.hidden = true;
+    setDirty(state.markdown !== state.savedMarkdown);
+    paintRendered();
+    renderDrawer();
+    toast("Draft restored. Save to write it.");
+  }
+
+  function discardDraft() {
+    clearDrafts(state.docId);
+    state.pendingDraft = null;
+    els.restoreBanner.hidden = true;
+  }
+
+  function showSaveError(message) {
+    state.saveError = message;
+    els.saveErrorMsg.textContent = message;
+    els.saveErrorNote.textContent = isLearn()
+      ? "Learn mode is a sandbox. Use Back to the desk to save a real draft."
+      : (state.autoRetryTimer
+          ? "Your comments and edits are kept in this tab and this browser. STEER will try again by itself every 15 seconds and show \u201cSaved at\u201d when it lands. You can also click Retry."
+          : "Your comments and edits are still in this tab and kept in this browser, so nothing is lost. Retry when STEER is reachable.");
+    els.saveError.hidden = false;
+    updateStatus();
+    els.saveErrorRetry.focus();
+  }
+
+  // 2026-10-18: the box pauses when idle and tailnet requests do not wake it.
+  // After a network failure, retry every 15 s for up to 30 min so the save lands
+  // as soon as the box is awake again, without the writer having to watch it.
+  function scheduleAutoRetry() {
+    if (state.autoRetryTimer) return;
+    state.autoRetryCount = state.autoRetryCount || 0;
+    if (state.autoRetryCount >= 120) return;
+    state.autoRetryTimer = setTimeout(function () {
+      state.autoRetryTimer = null;
+      state.autoRetryCount += 1;
+      if (!state.dirty && state.savedMarkdown === (state.mode === "editing" ? els.editor.value : state.markdown)) return;
+      state.autoRetrying = true;
+      save().finally(function () { state.autoRetrying = false; });
+    }, 15000);
+  }
+
+  function cancelAutoRetry() {
+    if (state.autoRetryTimer) clearTimeout(state.autoRetryTimer);
+    state.autoRetryTimer = null;
+    state.autoRetryCount = 0;
+  }
+
+  function hideSaveError() {
+    state.saveError = null;
+    els.saveError.hidden = true;
+    updateStatus();
+  }
+
   function formatSaved(iso) {
     if (!iso) return "Not saved yet";
     try {
       var d = new Date(iso);
       return d.toLocaleString("en-US", {
-        timeZone: "America/Denver",
+        timeZone: CFG.timezone || "America/Denver",
         month: "short",
         day: "numeric",
         hour: "numeric",
         minute: "2-digit"
-      }) + " MT";
+      }) + " " + (CFG.tz_label || "MT");
     } catch (e) {
       return iso;
     }
@@ -231,8 +394,12 @@
       var tok = protectedMd.tokens[i];
       html = html.split(tok.key).join(tok.html);
     }
-    // /static/... 404s on Tailscale Serve (/steer only). Rewrite to BASE_PATH.
-    return html.replace(/(src|href)=("|')\/static\//g, "$1=$2/steer/static/");
+    // Desk is served under /steer. Root-absolute /static/... works on
+    // localhost:8766 but 404s on Tailscale Serve (only /steer is proxied).
+    html = html.replace(/(src|href)=(["'])\/static\//g, function (_, attr, q) {
+      return attr + "=" + q + BASE + "/static/";
+    });
+    return html;
   }
 
   function buildVisibleIndex(src) {
@@ -400,6 +567,7 @@
 
   function setDirty(value) {
     state.dirty = value;
+    storeDraft();
     updateStatus();
   }
 
@@ -430,7 +598,7 @@
 
   function loadCatalog() {
     if (isLearn()) return Promise.resolve();
-    return fetch("/steer/api/catalog")
+    return fetch(BASE + "/api/catalog")
       .then(function (res) { return res.json(); })
       .then(function (data) {
         catalogAssets = data.assets || [];
@@ -491,7 +659,7 @@
   async function selectCatalogAsset(id) {
     if (!id || isLearn()) return;
     try {
-      var res = await fetch("/steer/api/current", {
+      var res = await fetch(BASE + "/api/current", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: id })
@@ -508,7 +676,9 @@
   function updateStatus() {
     var idle = isIdle();
     var parts = [];
+    if (state.saveError) parts.push("Not saved");
     if (idle) parts.push("Nothing on the desk");
+    else if (state.confirmedAt) parts.push("Saved at " + formatClock(state.confirmedAt));
     else if (state.savedAt) parts.push("Saved " + formatSaved(state.savedAt));
     else parts.push("Not saved yet");
     if (!idle) {
@@ -516,10 +686,14 @@
       else if (state.savedAt) parts.push("All changes saved");
       if (state.productionReady) parts.push("Production ready");
     }
+    var missed = idle ? [] : notifyProblems();
+    missed.forEach(function (m) { parts.push(m.name + " not notified"); });
     els.status.textContent = parts.join(" · ");
-    els.status.classList.toggle("is-dirty", !idle && state.dirty);
+    els.status.title = missed.map(function (m) { return m.name + ": " + m.why; }).join("\n");
+    els.status.classList.toggle("is-dirty", !!state.saveError || (!idle && state.dirty) || missed.length > 0);
     els.readyBtn.disabled = idle || !state.savedAt || state.dirty;
-    els.saveBtn.disabled = idle;
+    // Never disabled for idle: clicking Save must always say why it can't save.
+    els.saveBtn.disabled = state.saving;
     els.readyBtn.textContent = state.productionReady ? "Production ready" : "Ready for production";
   }
 
@@ -686,19 +860,27 @@
     }
     var sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) {
-      // selectionchange has no event; keep an open form. A real click
-      // away (mouseup outside the popover) dismisses it.
-      if (els.popover.hidden || ev) hidePopover();
+      if (!els.popover.hidden) {
+        // Keep Comment/Replace while the user reaches for a button.
+        // If a form is already open and they click away, dismiss it.
+        if (state.popKind && ev && ev.target && !els.popover.contains(ev.target)) {
+          hidePopover();
+        }
+        return;
+      }
+      hidePopover();
       return;
     }
     var range = sel.getRangeAt(0);
     if (!els.article.contains(range.commonAncestorContainer)) {
-      if (els.popover.hidden || ev) hidePopover();
+      if (!els.popover.hidden) return;
+      hidePopover();
       return;
     }
     var text = sel.toString();
     if (!text || !text.trim()) {
-      if (els.popover.hidden || ev) hidePopover();
+      if (!els.popover.hidden) return;
+      hidePopover();
       return;
     }
     var mapped = mapSelection(text, state.markdown, selectionContext(range));
@@ -708,9 +890,16 @@
       return;
     }
     state.popRange = mapped;
-    state.popKind = null;
-    els.popoverForm.hidden = true;
-    els.popoverActions.hidden = false;
+    // New article selection always offers Comment/Replace again.
+    // Otherwise a prior Comment/Replace form leaves popKind set and
+    // later selections only show the textarea — no comment options.
+    var inPopover = !!(ev && ev.target && els.popover.contains(ev.target));
+    if (!inPopover) {
+      state.popKind = null;
+      els.popoverForm.hidden = true;
+      els.popoverActions.hidden = false;
+      els.popoverInput.value = "";
+    }
     var rect = range.getBoundingClientRect();
     var x = rect.left;
     var y = rect.bottom + 8;
@@ -908,40 +1097,82 @@
   }
 
   async function save() {
+    if (state.saving) return;
     if (state.mode === "editing") state.markdown = els.editor.value;
-    if (isIdle()) return;
+    // Every path below either writes to the server or shows a blocking reason.
     if (isLearn()) {
-      state.savedMarkdown = state.markdown;
-      state.savedAt = isoNow();
-      setDirty(false);
-      toast("Tutorial: not written to the catalog");
+      showSaveError("Tutorial: Save is not written to the catalog here.");
       return;
     }
+    if (isIdle()) {
+      showSaveError("Nothing is on the desk, so there is no piece to save into. Open the Catalog and pick a draft first.");
+      return;
+    }
+    if (!state.docId) {
+      showSaveError("This tab does not know which piece it holds. Reload the page; your edits are kept in this browser.");
+      return;
+    }
+    storeDraft();
     var comments = extractMarks(state.markdown);
-    els.saveBtn.disabled = true;
+    state.saving = true;
+    els.saveBtn.textContent = "Saving…";
+    updateStatus();
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 20000) : null;
     try {
-      var res = await fetch("/steer/api/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          markdown: state.markdown,
-          mode: state.mode,
-          comments: comments
-        })
-      });
-      var data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Save failed");
+      var res;
+      try {
+        res = await fetch(BASE + "/api/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: state.docId,
+            base_mtime: state.baseVersion,
+            markdown: state.markdown,
+            mode: state.mode,
+            comments: comments
+          }),
+          signal: ctrl ? ctrl.signal : undefined
+        });
+      } catch (netErr) {
+        // Network-level failure (box asleep / tailnet path down): keep retrying quietly.
+        scheduleAutoRetry();
+        throw new Error(netErr && netErr.name === "AbortError"
+          ? "STEER did not answer within 20 seconds. The box may be asleep or the tailnet connection dropped."
+          : "Could not reach STEER. The box may be asleep or the tailnet connection dropped.");
+      }
+      var data = null;
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok || !data || !data.ok) {
+        throw new Error((data && data.error) || ("STEER answered HTTP " + res.status + " without confirming the write."));
+      }
       state.savedMarkdown = state.markdown;
       state.savedAt = data.saved_at;
+      state.confirmedAt = data.saved_at;
       state.generation = data.generation;
       state.productionReady = false;
-      if (data.asset_mtime) state.assetMtime = data.asset_mtime;
+      if (data.asset_mtime) {
+        state.assetMtime = data.asset_mtime;
+        state.baseVersion = data.asset_mtime;
+      }
+      clearDrafts(state.docId);
+      cancelAutoRetry();
+      state.saveError = null;
+      els.saveError.hidden = true;
       setDirty(false);
-      toast("Saved");
+      toast("Saved at " + formatClock(data.saved_at));
     } catch (err) {
-      toast(err.message || "Save failed", true);
+      if (state.autoRetrying && els.saveError.hidden) {
+        // Background retry while the writer keeps editing: don't pop the box again.
+        state.saveError = err.message || "Save failed.";
+      } else {
+        showSaveError(err.message || "Save failed.");
+      }
     } finally {
-      els.saveBtn.disabled = isIdle();
+      clearTimeout(timer);
+      state.saving = false;
+      els.saveBtn.textContent = "Save";
+      updateStatus();
     }
   }
 
@@ -967,7 +1198,7 @@
       return;
     }
     try {
-      var res = await fetch("/steer/api/ready", { method: "POST" });
+      var res = await fetch(BASE + "/api/ready", { method: "POST" });
       var data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Could not mark ready");
       state.productionReady = true;
@@ -986,8 +1217,11 @@
     state.productionReady = !!data.production_ready;
     state.generation = data.generation || 0;
     state.assetMtime = data.asset_mtime || 0;
+    state.baseVersion = state.assetMtime;
+    state.confirmedAt = null;
     state.docId = data.id || "";
     state.idle = !!data.idle;
+    if (data.notify) state.notify = data.notify;
     state.catalogOpen = false;
     els.docTitle.textContent = data.title || TITLE_FALLBACK;
     document.title = els.docTitle.textContent;
@@ -1002,10 +1236,11 @@
     setDirty(false);
     syncCatalogPanel();
     if (state.idle && !isLearn()) loadCatalog();
+    if (!isLearn() && state.docId) offerRestore();
   }
 
   async function loadLearn() {
-    var res = await fetch("/steer/static/tutorial.md?v=12");
+    var res = await fetch(BASE + "/static/tutorial.md?v=" + VERSION);
     if (!res.ok) throw new Error("Could not load the tutorial");
     var md = await res.text();
     window.__TUTORIAL_SRC = md;
@@ -1033,7 +1268,7 @@
 
   async function load(resetMode) {
     if (isLearn()) return loadLearn();
-    var res = await fetch("/steer/api/doc");
+    var res = await fetch(BASE + "/api/doc");
     var data = await res.json();
     applyDoc(data, resetMode !== false);
   }
@@ -1042,11 +1277,15 @@
     if (isLearn()) return;
     if (!window.EventSource) return;
     var primed = false;
-    var es = new EventSource("/steer/api/events");
+    var es = new EventSource(BASE + "/api/events");
     es.onmessage = function (ev) {
       var data;
       try { data = JSON.parse(ev.data); } catch (e) { return; }
       var processed = data.processed_generation || 0;
+      if (data.notify) {
+        state.notify = data.notify;
+        updateStatus();
+      }
       if (!primed) {
         primed = true;
         if (data.asset_mtime) state.assetMtime = data.asset_mtime;
@@ -1104,6 +1343,12 @@
     els.catalogSearch = $("catalog-search");
     els.catalogList = $("catalog-list");
     els.catalogToggle = $("catalog-toggle");
+    els.saveError = $("save-error");
+    els.saveErrorMsg = $("save-error-msg");
+    els.saveErrorNote = $("save-error-note");
+    els.saveErrorRetry = $("save-error-retry");
+    els.restoreBanner = $("restore-banner");
+    els.restoreMsg = $("restore-msg");
 
     document.querySelectorAll(".mode").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -1112,6 +1357,23 @@
     });
 
     els.saveBtn.addEventListener("click", save);
+    els.saveErrorRetry.addEventListener("click", function () {
+      els.saveError.hidden = true;
+      save();
+    });
+    $("save-error-close").addEventListener("click", function () {
+      // Status keeps saying "Not saved" until a save is confirmed.
+      els.saveError.hidden = true;
+    });
+    $("restore-apply").addEventListener("click", restoreDraft);
+    $("restore-discard").addEventListener("click", discardDraft);
+    window.addEventListener("beforeunload", function (ev) {
+      if (state.dirty && !isLearn()) {
+        storeDraft();
+        ev.preventDefault();
+        ev.returnValue = "";
+      }
+    });
     els.readyBtn.addEventListener("click", openReadyModal);
     if (els.catalogToggle) {
       els.catalogToggle.addEventListener("click", function () {
@@ -1190,7 +1452,7 @@
       }
       if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "s") {
         ev.preventDefault();
-        if (!isIdle()) save();
+        save();
       }
     });
 

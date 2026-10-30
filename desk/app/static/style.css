@@ -434,6 +434,21 @@ body {
 }
 .toast.is-error { background: #7a211a; }
 
+.restore-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.5rem auto 0;
+  max-width: 60rem;
+  padding: 0.55rem 0.8rem;
+  background: #fff4d6;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.restore-banner span { flex: 1 1 16rem; }
+
 @media (max-width: 960px) {
   .toolbar {
     grid-template-columns: 1fr;

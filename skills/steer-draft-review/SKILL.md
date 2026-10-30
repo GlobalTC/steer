@@ -26,7 +26,7 @@ If Save does not wake Steer, the catalog is missing, the review server is missin
 
 ## Start a draft
 
-1. If `/workspace/steer-catalog` or `review/server.py` is missing, or `http://127.0.0.1:8766/steer/` does not answer, run [Steer onboarding](sand-workflow:steer-onboarding) and stop until the page is up.
+1. If `/workspace/steer-catalog` or its `app/server.py` is missing, or `http://127.0.0.1:8766/steer/` does not answer, run [Steer onboarding](sand-workflow:steer-onboarding) and stop until the page is up.
 2. Write the markdown to the Steer catalog asset. Register it in `index.json` (`status: draft`, `text_status: full`).
 3. Point the review page at that asset (`review/current.json`).
 4. Confirm the review page answers (`curl -sS -m 2 http://127.0.0.1:8766/steer/`). If it does not, start `python3 /workspace/steer-catalog/start.py` so port 8766 is listening. Do not send a spinning link.
