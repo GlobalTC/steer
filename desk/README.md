@@ -26,6 +26,19 @@ If this computer is on a tailnet, you may publish the desk to that tailnet only 
 
 That command **adds** the path. Never `tailscale serve reset`. Never Funnel. Localhost stays the product path; Serve is not required to install Steer.
 
+## Voice markup
+
+In **Suggesting** mode the desk can capture marks by speech (browser Web Speech API where supported).
+
+- **Select and speak:** highlight a phrase or tap a paragraph, then tap **Mic** on the popover. The transcript becomes an anchored comment with the same CriticMarkup shape as typed marks (`via="voice"` on the mark metadata for a small badge in the drawer).
+- **Free dictation:** tap **Talk through edits** at the bottom, read the draft aloud, then **Resolve marks**. The server turns the transcript into **proposed** marks; accept or reject each one before it is written. Instructions that cannot be anchored confidently stay as unanchored general notes — nothing is applied silently.
+
+Speech-to-text and resolution are behind small interfaces (`static/speech.js`, `review/voice_resolve.py`). Optional LLM resolution: copy `review/.voice.env.example` to `review/.voice.env` and set `VOICE_RESOLVE_URL` (and key/header). When unset, heuristic anchoring runs locally. Audio is not stored in saves.
+
+Run resolution tests:
+
+    python3 -m unittest discover -s review/tests -p 'test_*.py'
+
 ## Paths
 
 - `index.json` — machine list. Start here.

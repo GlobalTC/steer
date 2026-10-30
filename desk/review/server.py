@@ -21,6 +21,8 @@ HOST = "127.0.0.1"
 PORT = 8766
 
 ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 CATALOG = ROOT.parent
 STATIC = ROOT / "static"
 SAVES = ROOT / "saves"
@@ -28,6 +30,7 @@ CURRENT = ROOT / "current.json"
 LATEST = SAVES / "latest.json"
 PROCESSED = SAVES / "processed.json"
 WEBHOOK_ENV = ROOT / ".webhook.env"
+VOICE_ENV = ROOT / ".voice.env"
 INDEX = CATALOG / "index.json"
 
 MIME = {
@@ -192,6 +195,23 @@ def webhook_configured() -> bool:
     return bool(env.get("WEBHOOK_URL") and env.get("WEBHOOK_KEY"))
 
 
+def load_voice_env() -> dict:
+    env = {}
+    if not VOICE_ENV.is_file():
+        return env
+    for raw in VOICE_ENV.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        env[key.strip()] = value.strip().strip('"').strip("'")
+    return env
+
+
+def voice_resolve_configured() -> bool:
+    return bool(load_voice_env().get("VOICE_RESOLVE_URL"))
+
+
 def ping_webhook(payload: dict) -> None:
     env = load_webhook_env()
     url = env.get("WEBHOOK_URL")
@@ -297,6 +317,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {"configured": webhook_configured()})
             return
 
+        if path == "/api/voice-config":
+            self._api_voice_config()
+            return
+
         if path.startswith("/static/"):
             rel = path[len("/static/") :]
             self._serve_static(rel)
@@ -320,6 +344,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if path == "/api/webhook-config":
                 self._api_webhook_config()
+                return
+            if path == "/api/resolve-voice":
+                self._api_resolve_voice()
                 return
         except json.JSONDecodeError:
             self._send_json(400, {"ok": False, "error": "Invalid JSON"})
@@ -426,6 +453,39 @@ class Handler(BaseHTTPRequestHandler):
                 time.sleep(0.6)
         except (BrokenPipeError, ConnectionResetError, TimeoutError, OSError):
             return
+
+    def _api_voice_config(self) -> None:
+        from voice_resolve import voice_llm_configured
+
+        self._send_json(
+            200,
+            {
+                "speech": "browser",
+                "llm_resolve": voice_llm_configured() or voice_resolve_configured(),
+            },
+        )
+
+    def _api_resolve_voice(self) -> None:
+        from voice_resolve import proposals_to_json, resolve_dictation
+
+        body = self._read_json_body()
+        transcript = body.get("transcript")
+        markdown = body.get("markdown")
+        if not isinstance(transcript, str) or not transcript.strip():
+            self._send_json(400, {"ok": False, "error": "transcript is required"})
+            return
+        if not isinstance(markdown, str):
+            self._send_json(400, {"ok": False, "error": "markdown is required"})
+            return
+        proposals = resolve_dictation(transcript.strip(), markdown)
+        self._send_json(
+            200,
+            {
+                "ok": True,
+                "proposals": proposals_to_json(proposals),
+                "llm_used": voice_resolve_configured(),
+            },
+        )
 
     def _api_webhook_config(self) -> None:
         body = self._read_json_body()
