@@ -38,10 +38,9 @@ If Save does not wake Steer, the catalog is missing, the review server is missin
 2. If generation/`saved_at` already processed, stay quiet.
 3. If `production_ready`, treat the draft as done: update catalog status, ask what to do with it (leave, publish, another pass). Never delete the save-ping routine.
 4. Otherwise apply CriticMarkup in the **source document's** voice: comments become revisions, substitutions/insertions/deletions apply, strip the markers after they are handled.
-5. If the save includes `revise_hints` (voice markup), read `revise_hints.voice_marks_literal` and honor it for marks listed in `revise_hints.voice_mark_ids` (`via="voice"` in the markdown metadata). Preserve the reviewer's spoken wording from those mark notes more literally—do not polish or expand into generic editorial advice.
-6. Write the revised markdown back to the **asset**. The review page reads the asset, so a live tab should update.
-7. Record the processed generation so the same Save is not replayed.
-8. Recap the changes in a sentence or two and keep the same review URL.
+5. Write the revised markdown back to the **asset**. The review page reads the asset, so a live tab should update.
+6. Record the processed generation so the same Save is not replayed.
+7. Recap the changes in a sentence or two and keep the same review URL.
 
 A stale tab that Saves will overwrite a rewrite. If that happens, re-apply any still-valid marks and tell them to let the page update before the next Save.
 

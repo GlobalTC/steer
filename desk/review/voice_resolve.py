@@ -229,19 +229,14 @@ def resolve_clause_heuristic(
                 paragraph_index=para,
             )
 
-    if para is not None:
-        p = paragraph_by_index(src, para, idx)
-        if p:
-            return MarkProposal(
-                kind="comment",
-                body=note,
-                confidence=0.68,
-                anchor=Anchor(p.start, p.end, src[p.start : p.end]),
-                excerpt=p.text[:140],
-                source_clause=clause,
-                anchor_scope="paragraph",
-                paragraph_index=para,
-            )
+    if para is not None and not target_phrase:
+        return MarkProposal(
+            kind="general",
+            body=note,
+            confidence=0.35,
+            source_clause=clause,
+            anchor_scope="general",
+        )
 
     return MarkProposal(
         kind="general",
@@ -368,10 +363,11 @@ def resolve_dictation_llm(
 def resolve_dictation(
     transcript: str, markdown: str, *, allow_llm: bool = True
 ) -> List[MarkProposal]:
-    if allow_llm and voice_llm_configured():
-        llm = resolve_dictation_llm(transcript, markdown)
-        if llm:
-            return llm
+    if allow_llm:
+        from voice_llm import resolve_dictation_primary
+
+        proposals, _used = resolve_dictation_primary(transcript, markdown)
+        return proposals
     return resolve_dictation_heuristic(transcript, markdown)
 
 

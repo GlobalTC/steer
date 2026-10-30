@@ -459,7 +459,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
     def _api_voice_config(self) -> None:
-        from voice_resolve import voice_llm_configured
+        from voice_llm import host_chat_configured
         from voice_stt import stt_configured
 
         self._send_json(
@@ -467,7 +467,7 @@ class Handler(BaseHTTPRequestHandler):
             {
                 "browser_stt": True,
                 "server_stt_configured": stt_configured(),
-                "llm_resolve": voice_llm_configured() or voice_resolve_configured(),
+                "llm_resolve": host_chat_configured(),
                 "transcribe_path": BASE_PATH + "/api/transcribe-voice",
             },
         )
@@ -521,7 +521,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, {"ok": True, "transcript": transcript})
 
     def _api_resolve_voice(self) -> None:
-        from voice_resolve import proposals_to_json, resolve_dictation
+        from voice_llm import resolve_dictation_primary
+        from voice_resolve import proposals_to_json
 
         body = self._read_json_body()
         transcript = body.get("transcript")
@@ -532,13 +533,15 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(markdown, str):
             self._send_json(400, {"ok": False, "error": "markdown is required"})
             return
-        proposals = resolve_dictation(transcript.strip(), markdown)
+        proposals, resolver = resolve_dictation_primary(
+            transcript.strip(), markdown
+        )
         self._send_json(
             200,
             {
                 "ok": True,
                 "proposals": proposals_to_json(proposals),
-                "llm_used": voice_resolve_configured(),
+                "resolver": resolver,
             },
         )
 
@@ -569,9 +572,6 @@ class Handler(BaseHTTPRequestHandler):
             return
         mode = body.get("mode") if isinstance(body.get("mode"), str) else "viewing"
         comments = body.get("comments") if isinstance(body.get("comments"), list) else []
-        from revise_hints import revise_hints_from_comments
-
-        revise_hints = revise_hints_from_comments(comments)
 
         previous = read_json(LATEST) or {}
         generation = int(previous.get("generation") or 0) + 1
@@ -586,9 +586,6 @@ class Handler(BaseHTTPRequestHandler):
             "generation": generation,
             "asset_id": spec.get("id"),
         }
-        if revise_hints:
-            record["revise_hints"] = revise_hints
-
         # Article file first (source of truth), then the save record.
         if not markdown.endswith("\n"):
             asset_text = markdown + "\n"
@@ -607,8 +604,6 @@ class Handler(BaseHTTPRequestHandler):
             "comment_count": len(comments),
             "production_ready": False,
         }
-        if revise_hints:
-            webhook_payload["revise_hints"] = revise_hints
         threading.Thread(
             target=ping_webhook,
             args=(webhook_payload,),

@@ -114,7 +114,7 @@
       });
     }
 
-    var reMeta = '\\{id="([^"]*)"\s+by="([^"]*)"\s+at="([^"]*)"(?:\s+via="([^"]*)")?\\}';
+    var reMeta = '\\{id="([^"]*)"\s+by="([^"]*)"\s+at="([^"]*)"\\}';
     var reHC = new RegExp("\\{==([\\s\\S]*?)==\\}\\{>>([\\s\\S]*?)<<\\}(?:" + reMeta + ")?", "g");
     var m;
     while ((m = reHC.exec(md))) {
@@ -123,7 +123,6 @@
         id: m[3] || "",
         by: m[4] || AUTHOR,
         at: m[5] || "",
-        via: m[6] || "",
         excerpt: m[1],
         body: m[2]
       });
@@ -137,7 +136,6 @@
         id: m[3] || "",
         by: m[4] || AUTHOR,
         at: m[5] || "",
-        via: m[6] || "",
         excerpt: m[1],
         body: m[2]
       });
@@ -152,7 +150,6 @@
         id: m[2] || "",
         by: m[3] || AUTHOR,
         at: m[4] || "",
-        via: m[5] || "",
         excerpt: "",
         body: m[1]
       });
@@ -588,13 +585,6 @@
       kind.className = "mark-kind";
       kind.textContent = (mark.type === "replace" ? "Replace" : "Comment") + (mark.id ? " · " + mark.id : "");
       head.appendChild(kind);
-      if (mark.via === "voice") {
-        var voiceTag = document.createElement("span");
-        voiceTag.className = "mark-voice-tag";
-        voiceTag.textContent = "Voice";
-        voiceTag.title = "Created from speech";
-        head.appendChild(voiceTag);
-      }
       var body = document.createElement("div");
       body.className = "mark-body";
       body.textContent = mark.type === "replace" ? mark.excerpt + " → " + mark.body : mark.body;
@@ -749,13 +739,11 @@
     els.popoverInput.focus();
   }
 
-  function metaSuffix(id, stamp, viaVoice) {
-    var base = '{id="' + id + '" by="' + AUTHOR + '" at="' + stamp + '"';
-    if (viaVoice) base += ' via="voice"';
-    return base + "}";
+  function metaSuffix(id, stamp) {
+    return '{id="' + id + '" by="' + AUTHOR + '" at="' + stamp + '"}';
   }
 
-  function insertMark(range, kind, note, viaVoice) {
+  function insertMark(range, kind, note) {
     var md = state.markdown;
     var chunk = md.slice(range.start, range.end);
     if (chunk !== range.text) {
@@ -769,12 +757,12 @@
       var cid = nextId(md, "c");
       wrapped =
         "{==" + chunk + "==}{>>" + note.trim() + "<<}" +
-        metaSuffix(cid, stamp, viaVoice);
+        metaSuffix(cid, stamp);
     } else {
       var sid = nextId(md, "s");
       wrapped =
         "{~~" + chunk + "~>" + note + "~~}" +
-        metaSuffix(sid, stamp, viaVoice);
+        metaSuffix(sid, stamp);
     }
     state.markdown = md.slice(0, range.start) + wrapped + md.slice(range.end);
     setDirty(state.markdown !== state.savedMarkdown);
@@ -790,7 +778,7 @@
       toast("Select text or tap a paragraph first.", true);
       return;
     }
-    if (insertMark(state.popRange, "comment", note, true)) {
+    if (insertMark(state.popRange, "comment", note)) {
       toast("Voice comment added");
     }
   }
@@ -803,7 +791,7 @@
       var gid = nextId(md, "c");
       wrapped =
         "{>>" + proposal.body.trim() + "<<}" +
-        metaSuffix(gid, stamp, true);
+        metaSuffix(gid, stamp);
       state.markdown = md + (md.endsWith("\n") ? "" : "\n") + wrapped;
     } else if (proposal.anchor) {
       var range = {
@@ -812,16 +800,16 @@
         text: proposal.anchor.text
       };
       if (proposal.kind === "replace") {
-        insertMark(range, "replace", proposal.replace_with || proposal.body, true);
+        insertMark(range, "replace", proposal.replace_with || proposal.body);
         return;
       }
-      insertMark(range, "comment", proposal.body, true);
+      insertMark(range, "comment", proposal.body);
       return;
     } else {
       var uid = nextId(md, "c");
       wrapped =
         "{>>" + proposal.body.trim() + "<<}" +
-        metaSuffix(uid, stamp, true);
+        metaSuffix(uid, stamp);
       state.markdown = md + (md.endsWith("\n") ? "" : "\n") + wrapped;
     }
     setDirty(state.markdown !== state.savedMarkdown);
@@ -849,7 +837,7 @@
       hidePopover();
       return;
     }
-    insertMark(state.popRange, state.popKind, note, false);
+    insertMark(state.popRange, state.popKind, note);
   }
 
   function mapParagraphTap(blockText) {
