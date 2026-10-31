@@ -77,18 +77,24 @@ TITLE_FALLBACK = "Draft"
 BASE_PATH = "/steer"
 DEFAULT_ASSET = "assets/steer-slop-sample.md"
 DESK_NAME = "STEER"
+APP_VERSION = "0"
 
 
-def app_version() -> str:
+def _read_version_file() -> str:
     try:
         return VERSION_FILE.read_text(encoding="utf-8").strip() or "0"
     except OSError:
         return "0"
 
 
+def app_version() -> str:
+    return APP_VERSION
+
+
 def configure(argv=None) -> None:
     """Catalog folder + port + base path from args, env, then <catalog>/steer.json."""
     global HOST, PORT, CATALOG, CONFIG, BASE_PATH, TITLE_FALLBACK, DEFAULT_ASSET, DESK_NAME
+    global APP_VERSION
     ap = argparse.ArgumentParser(description="STEER review server")
     ap.add_argument("--catalog", default=os.environ.get("STEER_CATALOG"))
     ap.add_argument("--port", type=int, default=None)
@@ -112,6 +118,7 @@ def configure(argv=None) -> None:
     voice_rel = CONFIG.get("voice_env") or "review/.voice.env"
     voice_path = (CATALOG / voice_rel).resolve()
     os.environ["STEER_VOICE_ENV"] = str(voice_path)
+    APP_VERSION = _read_version_file()
 
 
 def normalize_path(path: str) -> str:
@@ -494,6 +501,7 @@ def client_config() -> dict:
         "name": DESK_NAME,
         "base": BASE_PATH,
         "version": app_version(),
+        "catalog": str(CATALOG),
         "title_fallback": TITLE_FALLBACK,
         "timezone": CONFIG.get("timezone") or "America/Denver",
         "tz_label": CONFIG.get("tz_label") or "MT",

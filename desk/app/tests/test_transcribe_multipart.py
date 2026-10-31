@@ -74,6 +74,8 @@ class TestTranscribeMultipart(unittest.TestCase):
                 out = json.loads(resp.read().decode("utf-8"))
         finally:
             httpd.shutdown()
+            httpd.server_close()
+            thread.join(timeout=5)
         self.assertTrue(out.get("ok"))
         self.assertEqual(out.get("transcript"), "hello from mic")
         mock_transcribe.assert_called_once()

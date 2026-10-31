@@ -1023,11 +1023,10 @@
         return res.json();
       })
       .then(function (data) {
-        if (!data.ok || !Array.isArray(data.proposals)) return items;
+        if (!data.ok || !Array.isArray(data.proposals)) {
+          return Promise.reject(new Error("Re-anchor failed"));
+        }
         return data.proposals;
-      })
-      .catch(function () {
-        return items;
       });
   }
 

@@ -26,9 +26,9 @@ Product repo (source of the page, server, sample draft, logos): `https://github.
 
 Catalog path: `/workspace/steer-catalog`
 
-Run **`install-desk.sh`** from the product repo. Download the script from `main`; it pins the release tarball via `STEER_TAG` (default in the script). It installs or upgrades `app/` and `start.py`, merges new `steer.json` keys (including `brand` and `voice_env`) without clobbering yours, adds missing `brand/` assets, and starts the server using the **port and base path in `steer.json`**. It fails if that port is already serving a different desk.
+Run **`install-desk.sh`** from the product repo. Download the script from the same release tag as the tarball (`STEER_TAG`, default in the script). It installs or upgrades `app/` and `start.py`, merges new `steer.json` keys (including `brand` and `voice_env`) without clobbering yours, adds missing `brand/` assets, and starts or restarts the server using the **port and base path in `steer.json`**. It fails if that port is already serving a different desk (by catalog path).
 
-       curl -fsSL https://raw.githubusercontent.com/GlobalTC/steer/main/install-desk.sh -o /tmp/install-desk.sh
+       curl -fsSL https://raw.githubusercontent.com/GlobalTC/steer/v2026.10.31-2/install-desk.sh -o /tmp/install-desk.sh
        bash /tmp/install-desk.sh
 
 (`STEER_TAG` overrides the release. If memory says the app code lives outside the catalog, do not let the installer create a second copy in the catalog; upgrade the app path from memory instead. The catalog is data only.)
