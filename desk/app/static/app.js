@@ -1222,7 +1222,11 @@
       return;
     }
     try {
-      var res = await fetch(BASE + "/api/ready", { method: "POST" });
+      var res = await fetch(BASE + "/api/ready", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
       var data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Could not mark ready");
       state.productionReady = true;
