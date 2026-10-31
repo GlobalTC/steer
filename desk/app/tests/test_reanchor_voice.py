@@ -43,6 +43,22 @@ class TestReanchorVoice(unittest.TestCase):
         self.assertIsNotNone(remaining.get("anchor"))
         self.assertIn("two uninterrupted hours", remaining["anchor"]["text"])
 
+    def test_reanchor_preserves_pid_when_entries_skipped(self) -> None:
+        proposals = [
+            {"kind": "comment", "body": "a", "_pid": "p0", "anchor": None},
+            "not-a-dict",
+            {
+                "kind": "comment",
+                "body": "b",
+                "_pid": "p2",
+                "anchor": {"start": 60, "end": 82, "text": "two uninterrupted hours"},
+            },
+        ]
+        out = reanchor_proposal_dicts(SAMPLE, proposals)
+        self.assertEqual(len(out), 3)
+        self.assertEqual(out[0].get("_pid"), "p0")
+        self.assertEqual(out[2].get("pid"), "p2")
+
 
 if __name__ == "__main__":
     unittest.main()

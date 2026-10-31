@@ -42,8 +42,10 @@
     document.addEventListener("click", function (ev) {
       var accept = ev.target.closest("[data-proposal-accept]");
       var reject = ev.target.closest("[data-proposal-reject]");
+      var reanchor = ev.target.closest("[data-proposal-reanchor]");
       if (accept) acceptProposal(accept.getAttribute("data-proposal-accept"));
       if (reject) rejectProposal(reject.getAttribute("data-proposal-reject"));
+      if (reanchor) reanchorProposal(reanchor.getAttribute("data-proposal-reanchor"));
     });
   }
 
@@ -280,7 +282,22 @@
         actions.appendChild(acc);
         actions.appendChild(rej);
       } else if (p._status === "stale") {
-        actions.textContent = "Needs re-anchoring";
+        var staleNote = document.createElement("span");
+        staleNote.className = "voice-proposal-stale-note";
+        staleNote.textContent = "Needs re-anchoring";
+        var reanch = document.createElement("button");
+        reanch.type = "button";
+        reanch.className = "btn btn-touch btn-primary";
+        reanch.textContent = "Re-anchor";
+        reanch.setAttribute("data-proposal-reanchor", p._pid);
+        var rejStale = document.createElement("button");
+        rejStale.type = "button";
+        rejStale.className = "btn btn-touch";
+        rejStale.textContent = "Reject";
+        rejStale.setAttribute("data-proposal-reject", p._pid);
+        actions.appendChild(staleNote);
+        actions.appendChild(reanch);
+        actions.appendChild(rejStale);
       } else {
         actions.textContent = p._status === "accepted" ? "Accepted" : "Rejected";
       }
@@ -317,21 +334,25 @@
       return x._status === "proposed";
     });
     if (remaining.length && api.reanchorVoiceProposals) {
-      api.reanchorVoiceProposals(remaining).then(function (updated) {
-        updated.forEach(function (u, idx) {
-          var pid2 = remaining[idx] && remaining[idx]._pid;
-          var tgt = pid2 ? findProposal(pid2) : null;
-          if (!tgt) return;
-          tgt.anchor = u.anchor;
-          tgt.excerpt = u.excerpt;
-          tgt.kind = u.kind;
-          tgt.anchor_scope = u.anchor_scope;
-          if (u.stale) {
-            tgt._status = "stale";
-          }
+      api.reanchorVoiceProposals(remaining)
+        .then(function (updated) {
+          updated.forEach(function (u) {
+            var pid2 = u._pid || u.pid;
+            var tgt = pid2 ? findProposal(pid2) : null;
+            if (!tgt) return;
+            tgt.anchor = u.anchor;
+            tgt.excerpt = u.excerpt;
+            tgt.kind = u.kind;
+            tgt.anchor_scope = u.anchor_scope;
+            if (u.stale) {
+              tgt._status = "stale";
+            }
+          });
+          renderProposals();
+        })
+        .catch(function () {
+          api.toast("Could not re-anchor proposals. Try again.", true);
         });
-        renderProposals();
-      });
     }
     renderProposals();
   }
@@ -340,6 +361,26 @@
     var p = findProposal(pid);
     if (!p) return;
     p._status = "rejected";
+    renderProposals();
+  }
+
+  function reanchorProposal(pid) {
+    var p = findProposal(pid);
+    if (!p || p._status !== "stale") return;
+    ensureSuggesting();
+    var range = api.getPopRange();
+    if (!range || !range.text || !range.text.trim()) {
+      api.toast("Select the phrase this mark should attach to, then tap Re-anchor.", true);
+      return;
+    }
+    p.anchor = { start: range.start, end: range.end, text: range.text };
+    p.excerpt = range.text;
+    p.anchor_scope = "phrase";
+    if (p.kind === "general") {
+      p.kind = "comment";
+    }
+    p._status = "proposed";
+    api.toast("Re-anchored — review and Accept when ready.");
     renderProposals();
   }
 

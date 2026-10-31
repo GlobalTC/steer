@@ -3,7 +3,7 @@
 set -euo pipefail
 
 DEST="${STEER_CATALOG:-/workspace/steer-catalog}"
-STEER_TAG="${STEER_TAG:-v2026.10.31-1}"
+STEER_TAG="${STEER_TAG:-v2026.10.31-2}"
 TARBALL="${STEER_TARBALL:-https://github.com/GlobalTC/steer/archive/refs/tags/${STEER_TAG}.tar.gz}"
 
 tmp=$(mktemp -d)
@@ -74,7 +74,7 @@ if [[ ! -f "$DEST/review/current.json" ]]; then
   printf '%s\n' '{"id":"steer-slop-sample","asset":"assets/steer-slop-sample.md"}' > "$DEST/review/current.json"
 fi
 
-read -r DESK_HOST DESK_PORT BASE_PATH DESK_NAME APP_VERSION <<EOF
+read -r DESK_HOST DESK_PORT BASE_PATH <<EOF
 $(python3 - "$DEST" <<'PY'
 import json
 import sys
@@ -86,54 +86,13 @@ port = int(cfg.get("port") or 8766)
 host = cfg.get("host") or "127.0.0.1"
 base = cfg.get("base_path") or "/steer"
 base = "/" + base.strip("/") if base.strip("/") else ""
-name = cfg.get("name") or "STEER"
-ver = (dest / "app" / "VERSION").read_text().strip() if (dest / "app" / "VERSION").is_file() else "0"
-print(host, port, base, name, ver, sep="\t")
+print(host, port, base, sep="\t")
 PY
 )
 EOF
 
-PAGE="http://${DESK_HOST}:${DESK_PORT}${BASE_PATH}/"
-CONFIG_URL="${PAGE}api/config"
-
-desk_identity_ok() {
-  python3 - "$CONFIG_URL" "$DESK_NAME" "$APP_VERSION" <<'PY'
-import json
-import sys
-import urllib.request
-
-url, name, version = sys.argv[1:4]
-try:
-    with urllib.request.urlopen(url, timeout=2) as resp:
-        data = json.loads(resp.read().decode())
-except Exception:
-    sys.exit(1)
-sys.exit(0 if data.get("name") == name and data.get("version") == version else 1)
-PY
-}
-
-if curl -fsS -m 2 "$PAGE" >/dev/null 2>&1; then
-  if desk_identity_ok; then
-    echo "$PAGE"
-    exit 0
-  fi
-  echo "Port ${DESK_PORT} is serving another desk (expected name ${DESK_NAME}, version ${APP_VERSION})." >&2
-  exit 1
-fi
-
-if [[ ! -f "$DEST/start.py" ]]; then
-  echo "no start.py at $DEST" >&2
-  exit 1
-fi
-
-nohup python3 "$DEST/start.py" >/tmp/steer-desk.log 2>&1 &
-for _ in $(seq 1 20); do
-  if curl -fsS -m 2 "$PAGE" >/dev/null 2>&1 && desk_identity_ok; then
-    echo "$PAGE"
-    exit 0
-  fi
-  sleep 0.25
-done
-
-echo "server did not answer at $PAGE" >&2
-exit 1
+python3 "$DEST/app/install_port.py" ensure \
+  --catalog "$DEST" \
+  --host "$DESK_HOST" \
+  --port "$DESK_PORT" \
+  --base-path "$BASE_PATH"

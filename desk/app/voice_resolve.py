@@ -383,8 +383,13 @@ def reanchor_proposal_dicts(
     out: List[Dict[str, Any]] = []
     for raw in proposals:
         if not isinstance(raw, dict):
+            out.append({"pid": None, "stale": True})
             continue
         p = dict(raw)
+        pid = p.get("_pid") or p.get("pid")
+        if pid is not None:
+            p["pid"] = pid
+            p["_pid"] = pid
         kind = p.get("kind")
         anchor = p.get("anchor")
         if kind in ("comment", "replace") and isinstance(anchor, dict):
