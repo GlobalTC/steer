@@ -180,6 +180,32 @@ class TestPostCsrf(unittest.TestCase):
         self.assertEqual(code, 415)
         self.assertFalse(data.get("ok", True))
 
+    def test_ready_without_json_content_type_unsupported(self) -> None:
+        # Bare fetch(..., {method: "POST"}) sends no Content-Type (2026-10-31).
+        code, data = self._post(
+            "/api/ready",
+            b"",
+            {"Origin": "http://127.0.0.1:%d" % self.port},
+        )
+        self.assertEqual(code, 415)
+        self.assertFalse(data.get("ok", True))
+
+    def test_ready_with_json_content_type_allowed(self) -> None:
+        origin = "http://127.0.0.1:%d" % self.port
+        code, data = self._post(
+            "/api/save",
+            json.dumps({"markdown": "# ready\n", "id": "piece"}).encode(),
+            {"Content-Type": "application/json", "Origin": origin},
+        )
+        self.assertEqual(code, 200)
+        code, data = self._post(
+            "/api/ready",
+            b"{}",
+            {"Content-Type": "application/json", "Origin": origin},
+        )
+        self.assertEqual(code, 200)
+        self.assertTrue(data.get("ok"))
+
     def test_webhook_config_honors_target(self) -> None:
         primary = self.catalog / "review" / ".webhook.env"
         second = self.catalog / "review" / "second.webhook.env"
