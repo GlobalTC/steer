@@ -38,15 +38,13 @@ def _minimal_live_catalog(root: Path) -> None:
 
 class TestLiveCatalogGuard(unittest.TestCase):
     def setUp(self) -> None:
-        os.environ["STEER_TESTING"] = "1"
         self._tmp = Path(tempfile.mkdtemp(prefix="steer-live-guard-"))
         self.live = self._tmp / "live-catalog"
         self.live.mkdir()
-        os.environ["STEER_LIVE_CATALOG_PATH"] = str(self.live)
+        os.environ["STEER_UNITTEST_LIVE_CATALOG"] = str(self.live)
 
     def tearDown(self) -> None:
-        os.environ.pop("STEER_TESTING", None)
-        os.environ.pop("STEER_LIVE_CATALOG_PATH", None)
+        os.environ.pop("STEER_UNITTEST_LIVE_CATALOG", None)
         os.environ.pop("STEER_ALLOW_LIVE_CATALOG", None)
         os.environ.pop("STEER_CATALOG", None)
         shutil.rmtree(self._tmp, ignore_errors=True)
@@ -76,6 +74,27 @@ class TestLiveCatalogGuard(unittest.TestCase):
         )
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("Refusing", proc.stderr + proc.stdout)
+
+    def test_install_catalog_script_refuses_subdirectory_of_live(self) -> None:
+        sub = self.live / "sub"
+        sub.mkdir()
+        script = ROOT / "packaging" / "install-catalog.sh"
+        proc = subprocess.run(
+            ["bash", str(script)],
+            cwd=str(ROOT / "packaging"),
+            env={**os.environ, "STEER_CATALOG": str(sub)},
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("Refusing", proc.stderr + proc.stdout)
+        self.assertFalse((sub / "app").exists())
+
+    def test_refuse_subdirectory_of_live_install(self) -> None:
+        sub = self.live / "nested" / "desk"
+        sub.mkdir(parents=True)
+        with self.assertRaises(catalog_paths.CatalogRefusalError):
+            catalog_paths.refuse_live_workspace_catalog(sub, operation="install")
 
     def test_install_ignores_inherited_allow_env(self) -> None:
         script = ROOT / "packaging" / "install-catalog.sh"
@@ -119,6 +138,53 @@ class TestLiveCatalogGuard(unittest.TestCase):
                 steer_server.configure([])
         finally:
             os.chdir(prev)
+
+    def test_subprocess_app_outside_catalog_restart_command(self) -> None:
+        """Documented Grok restart: python3 <app-outside>/server.py --catalog <live>."""
+        _minimal_live_catalog(self.live)
+        app_outside = self._tmp / "steer" / "app"
+        shutil.copytree(APP, app_outside)
+        import socket
+
+        sock = socket.socket()
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+        sock.close()
+        cfg = json.loads((self.live / "steer.json").read_text(encoding="utf-8"))
+        cfg["port"] = port
+        (self.live / "steer.json").write_text(json.dumps(cfg) + "\n", encoding="utf-8")
+        run_cwd = self._tmp / "workspace"
+        run_cwd.mkdir()
+        env = {k: v for k, v in os.environ.items() if k != "STEER_CATALOG"}
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                str(app_outside / "server.py"),
+                "--catalog",
+                str(self.live),
+            ],
+            cwd=str(run_cwd),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+        try:
+            ok = False
+            for _ in range(40):
+                if install_port.page_responds("127.0.0.1", port, "/steer"):
+                    ok = True
+                    break
+                if proc.poll() is not None:
+                    break
+                threading.Event().wait(0.05)
+            if proc.poll() is not None and proc.stderr:
+                self.fail(proc.stderr.read().decode("utf-8", errors="replace"))
+            self.assertTrue(ok, "server did not respond on /steer")
+        finally:
+            install_port.stop_desk_on_port(port)
+            if proc.poll() is None:
+                proc.kill()
+            proc.wait(timeout=5)
 
     def test_explicit_catalog_restart_command_starts(self) -> None:
         """Grok layout: app outside catalog, explicit --catalog on CLI."""
@@ -198,13 +264,15 @@ class TestLiveCatalogGuard(unittest.TestCase):
         self.assertEqual(cfg.get("port"), port)
         install_port.stop_desk_on_port(port)
 
-    def test_live_path_override_ignored_outside_tests(self) -> None:
-        os.environ.pop("STEER_TESTING", None)
-        os.environ["STEER_LIVE_CATALOG_PATH"] = str(self._tmp / "fake-live")
+    def test_unittest_live_catalog_override(self) -> None:
+        os.environ.pop("STEER_UNITTEST_LIVE_CATALOG", None)
         self.assertEqual(
             catalog_paths.live_catalog_path().resolve(),
             catalog_paths.WORKSPACE_STEER_CATALOG.resolve(),
         )
+        fake = self._tmp / "fake-live"
+        os.environ["STEER_UNITTEST_LIVE_CATALOG"] = str(fake)
+        self.assertEqual(catalog_paths.live_catalog_path().resolve(), fake.resolve())
 
 
 if __name__ == "__main__":

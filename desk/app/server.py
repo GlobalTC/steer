@@ -6,7 +6,7 @@ Code lives in <catalog>/app. A desk (catalog) is only data:
   <catalog>/index.json, assets/, brand/ (logos, tutorial.md, figures/)
   <catalog>/review/      runtime: current.json, saves/, .webhook.env, logs
 
-Run:  python3 server.py --catalog ./steer-catalog [--port 8766] [--base-path /steer]
+Run:  python3 start.py   (from the catalog), or python3 server.py --catalog /path/to/catalog [--port 8766]
 Env:  STEER_CATALOG, STEER_PORT, STEER_BASE_PATH, STEER_HOST override steer.json.
 """
 

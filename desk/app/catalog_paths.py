@@ -7,16 +7,18 @@ from pathlib import Path
 
 WORKSPACE_STEER_CATALOG = Path("/workspace/steer-catalog")
 
+# Set only by unit tests (see desk/app/tests/test_live_catalog_guard.py).
+_UNITTEST_LIVE_CATALOG_ENV = "STEER_UNITTEST_LIVE_CATALOG"
+
 
 class CatalogRefusalError(ValueError):
     """Portable paths must not touch the live workspace catalog."""
 
 
 def live_catalog_path() -> Path:
-    if os.environ.get("STEER_TESTING") == "1":
-        override = os.environ.get("STEER_LIVE_CATALOG_PATH")
-        if override:
-            return Path(override).expanduser().resolve()
+    override = os.environ.get(_UNITTEST_LIVE_CATALOG_ENV)
+    if override:
+        return Path(override).expanduser().resolve()
     return WORKSPACE_STEER_CATALOG
 
 
@@ -52,29 +54,37 @@ def catalog_display_default() -> str:
     return "<package>/steer-catalog"
 
 
-def is_live_workspace_catalog(catalog: Path) -> bool:
+def touches_live_workspace_catalog(catalog: Path) -> bool:
+    """True when the resolved path is the live catalog or anything beneath it."""
     try:
-        return resolve_catalog_path(catalog) == live_catalog_path().resolve()
+        resolved = resolve_catalog_path(catalog)
+        live = live_catalog_path().resolve()
     except OSError:
+        return False
+    if resolved == live:
+        return True
+    try:
+        resolved.relative_to(live)
+        return True
+    except ValueError:
         return False
 
 
 def refuse_live_workspace_catalog(catalog: Path, *, operation: str) -> None:
-    """Block portable installs that resolve to the live Grok catalog."""
-    if is_live_workspace_catalog(catalog):
+    """Block portable installs that touch the live Grok catalog tree."""
+    if touches_live_workspace_catalog(catalog):
         raise CatalogRefusalError(
-            "Refusing %s into the live catalog %s. Pick another directory."
+            "Refusing %s under the live catalog %s. Pick another directory."
             % (operation, live_catalog_path())
         )
 
 
 def refuse_implicit_live_server_catalog(catalog: Path) -> Path:
-    """Refuse only implicit server resolution that lands on the live catalog."""
+    """Refuse implicit server resolution that lands on or under the live catalog."""
     resolved = resolve_catalog_path(catalog)
-    if is_live_workspace_catalog(resolved):
+    if touches_live_workspace_catalog(resolved):
         raise CatalogRefusalError(
-            "Refusing to serve the live catalog %s without an explicit --catalog flag. "
-            "Pick another directory."
+            "Refusing to serve under the live catalog %s. Pick another directory."
             % live_catalog_path()
         )
     return resolved
@@ -83,7 +93,7 @@ def refuse_implicit_live_server_catalog(catalog: Path) -> Path:
 def catalog_flag_passed_on_cli(argv: list[str] | None) -> bool:
     if not argv:
         return False
-    for i, arg in enumerate(argv):
+    for arg in argv:
         if arg == "--catalog":
             return True
         if arg.startswith("--catalog="):

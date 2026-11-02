@@ -66,13 +66,11 @@ class TestCatalogPaths(unittest.TestCase):
 
         live = Path(tempfile.mkdtemp())
         try:
-            os.environ["STEER_TESTING"] = "1"
-            os.environ["STEER_LIVE_CATALOG_PATH"] = str(live)
+            os.environ["STEER_UNITTEST_LIVE_CATALOG"] = str(live)
             with self.assertRaises(CatalogRefusalError):
                 refuse_live_workspace_catalog(live, operation="test")
         finally:
-            os.environ.pop("STEER_TESTING", None)
-            os.environ.pop("STEER_LIVE_CATALOG_PATH", None)
+            os.environ.pop("STEER_UNITTEST_LIVE_CATALOG", None)
             import shutil
 
             shutil.rmtree(live, ignore_errors=True)
