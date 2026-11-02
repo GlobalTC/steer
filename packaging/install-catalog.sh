@@ -3,6 +3,9 @@
 set -euo pipefail
 
 unset STEER_ALLOW_LIVE_CATALOG
+unset STEER_UNITTEST_LIVE_CATALOG
+unset STEER_LIVE_CATALOG_PATH
+unset STEER_TESTING
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SRC="$ROOT/desk"

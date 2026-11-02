@@ -7,18 +7,12 @@ from pathlib import Path
 
 WORKSPACE_STEER_CATALOG = Path("/workspace/steer-catalog")
 
-# Set only by unit tests (see desk/app/tests/test_live_catalog_guard.py).
-_UNITTEST_LIVE_CATALOG_ENV = "STEER_UNITTEST_LIVE_CATALOG"
-
 
 class CatalogRefusalError(ValueError):
     """Portable paths must not touch the live workspace catalog."""
 
 
 def live_catalog_path() -> Path:
-    override = os.environ.get(_UNITTEST_LIVE_CATALOG_ENV)
-    if override:
-        return Path(override).expanduser().resolve()
     return WORKSPACE_STEER_CATALOG
 
 

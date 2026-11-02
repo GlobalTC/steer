@@ -64,13 +64,14 @@ class TestCatalogPaths(unittest.TestCase):
     def test_refuse_live_catalog(self) -> None:
         import tempfile
 
+        import catalog_paths as cp
+
         live = Path(tempfile.mkdtemp())
         try:
-            os.environ["STEER_UNITTEST_LIVE_CATALOG"] = str(live)
-            with self.assertRaises(CatalogRefusalError):
-                refuse_live_workspace_catalog(live, operation="test")
+            with patch.object(cp, "live_catalog_path", return_value=live.resolve()):
+                with self.assertRaises(CatalogRefusalError):
+                    refuse_live_workspace_catalog(live, operation="test")
         finally:
-            os.environ.pop("STEER_UNITTEST_LIVE_CATALOG", None)
             import shutil
 
             shutil.rmtree(live, ignore_errors=True)
