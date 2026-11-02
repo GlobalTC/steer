@@ -26,10 +26,14 @@ from pathlib import Path
 
 src = Path(sys.argv[2])
 sys.path.insert(0, str(src / "app"))
-from catalog_paths import refuse_live_workspace_catalog, resolve_catalog_path
+from catalog_paths import CatalogRefusalError, refuse_live_workspace_catalog, resolve_catalog_path
 
 dest = sys.argv[1]
-refuse_live_workspace_catalog(resolve_catalog_path(dest), operation="install")
+try:
+    refuse_live_workspace_catalog(resolve_catalog_path(dest), operation="install")
+except CatalogRefusalError as exc:
+    sys.stderr.write("%s\n" % exc)
+    sys.exit(1)
 PY
 
 REAL_DEST="$(python3 - "$DEST" <<'PY'
