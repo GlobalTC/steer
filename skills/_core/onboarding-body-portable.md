@@ -6,17 +6,15 @@ Run when the catalog is missing, `app/server.py` is missing, or the review URL f
 
 ## 1. Install from this package (no network)
 
-Set where the catalog should live (default `./steer-catalog`):
+Stay in the **unzipped package folder** (where `install-catalog.sh` and `desk/` live). Do not install into your agent's shared skills tree unless you deliberately copy `SKILL.md` there as a separate opt-in step.
 
-    export STEER_CATALOG="${STEER_CATALOG:-./steer-catalog}"
+Pick a catalog path outside `/workspace/steer-catalog`, then run:
 
-From the directory that contains `install-catalog.sh` and `desk/` (the unzipped package root):
+    STEER_CATALOG="$PWD/catalog" bash install-catalog.sh
 
-    bash install-catalog.sh
+If you omit `STEER_CATALOG`, the catalog is `./steer-catalog` beside the script. Any path that resolves to `/workspace/steer-catalog` is refused.
 
-That copies the bundled `desk/` into `STEER_CATALOG`, merges `steer.json` keys without clobbering drafts, and starts the server only if nothing is already listening for that catalog on the configured port. It **refuses** to install into `/workspace/steer-catalog` unless you set `STEER_CATALOG` explicitly.
-
-Do not `curl | bash` from the network for portable installs. Do not nest `desk/desk` — the script copies contents into the catalog root.
+Do not `curl | bash` from the network for portable installs.
 
 ## 2. Start the page
 
@@ -24,7 +22,7 @@ From the catalog directory:
 
     python3 start.py
 
-Open `http://127.0.0.1:<port><base_path>/` from `steer.json` (defaults port **8766**, base path **/steer/**). Override port with `STEER_PORT` or `steer.json` `port`.
+Open `http://127.0.0.1:<port><base_path>/` from `steer.json` (defaults port **8766**, base **/steer/**). Set `STEER_PORT` when running `install-catalog.sh`, or edit `steer.json`.
 
 ## 3. Voice (optional)
 
@@ -36,4 +34,4 @@ Browser speech works with no setup. For host LLM resolution, set `XAI_API_KEY` o
 
 - Minute-poll or keepalive cron to detect Save.
 - Put a webhook URL form on the review page.
-- Install into `/workspace/steer-catalog` by accident on shared hosts.
+- Install into `/workspace/steer-catalog` (including via `..` or symlinks).

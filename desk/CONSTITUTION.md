@@ -4,9 +4,11 @@ Steer's desk. Not a style guide. The factory floor.
 
 ## 0. First run
 
-If this catalog is not on the computer yet, install it. Product repo: `https://github.com/GlobalTC/steer`.
+If this catalog is not on the computer yet, install the stock desk. Product repo: `https://github.com/GlobalTC/steer`.
 
-Pull the `desk/` tree from the main tarball (not a git clone) into `/workspace/steer-catalog` and start `start.py`. `install-desk.sh` at the repo root does that and will not overwrite existing drafts.
+**Grok Bot:** pull `desk/` from the release tarball (not a git clone) into `/workspace/steer-catalog` and start `start.py`. Repo-root `install-desk.sh` does that and will not overwrite existing drafts.
+
+**Portable hosts:** use `install-catalog.sh` from the skill zip into a catalog path **outside** `/workspace/steer-catalog` (never the live Grok catalog on shared `/workspace` hosts).
 
 Installing the stock desk **is** the product. Do not skip it. Do not redesign the page.
 

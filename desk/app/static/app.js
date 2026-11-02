@@ -85,7 +85,7 @@
   function formatClock(iso) {
     try {
       return new Date(iso).toLocaleTimeString("en-US", {
-        timeZone: CFG.timezone || "America/Denver",
+        timeZone: CFG.timezone || undefined,
         hour: "numeric",
         minute: "2-digit"
       }) + " " + (CFG.tz_label || "MT");
@@ -221,7 +221,7 @@
     try {
       var d = new Date(iso);
       return d.toLocaleString("en-US", {
-        timeZone: CFG.timezone || "America/Denver",
+        timeZone: CFG.timezone || undefined,
         month: "short",
         day: "numeric",
         hour: "numeric",

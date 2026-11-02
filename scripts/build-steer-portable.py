@@ -28,14 +28,7 @@ GROK = {
     "DRAFT_REVIEW_REF": "[Steer draft review](sand-workflow:steer-draft-review)",
 }
 
-DESK_EXCLUDE_PREFIXES = (
-    "app/tests/",
-    "__pycache__/",
-)
-DESK_EXCLUDE_NAMES = {
-    ".webhook.env",
-    ".voice.env",
-}
+ALLOWLIST_FILE = ROOT / "packaging" / "desk-allowlist.txt"
 
 
 def read_version() -> str:
@@ -126,22 +119,16 @@ def write_grok_skills() -> None:
 
 
 def iter_desk_allowlist() -> list[Path]:
+    lines = ALLOWLIST_FILE.read_text(encoding="utf-8").splitlines()
     out: list[Path] = []
-    for path in sorted(DESK.rglob("*")):
-        if path.is_dir():
+    for line in lines:
+        rel = line.strip()
+        if not rel or rel.startswith("#"):
             continue
-        rel = path.relative_to(DESK).as_posix()
-        if "__pycache__" in path.parts:
-            continue
-        if rel.startswith(DESK_EXCLUDE_PREFIXES):
-            continue
-        if any(part in DESK_EXCLUDE_NAMES for part in path.parts):
-            continue
-        if path.name.endswith(".log"):
-            continue
-        if rel.startswith("review/saves/") and path.name != ".gitkeep":
-            continue
-        out.append(path)
+        src = DESK / rel
+        if not src.is_file():
+            raise SystemExit("allowlist missing file: desk/%s" % rel)
+        out.append(src)
     return out
 
 
@@ -161,13 +148,10 @@ def scrub_portable_file(rel: str, data: bytes) -> bytes:
         idx = json.loads(data.decode("utf-8"))
         idx.pop("path", None)
         return (json.dumps(idx, indent=2) + "\n").encode("utf-8")
-    if rel == "README.md":
+    if rel in ("README.md", "CONSTITUTION.md"):
         text = data.decode("utf-8")
-        text = re.sub(
-            r"On a Grok Bot computer, this directory belongs at.*\n\n",
-            "",
-            text,
-        )
+        text = text.replace("**Grok Bot:**", "Note (Grok Bot hosts):")
+        text = text.replace("**Portable:**", "Portable hosts:")
         return text.encode("utf-8")
     if rel == "review/.webhook.env.example":
         text = data.decode("utf-8")

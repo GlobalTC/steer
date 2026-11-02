@@ -15,7 +15,8 @@ from catalog_paths import (  # noqa: E402
     CatalogRefusalError,
     catalog_display_default,
     default_catalog_path,
-    refuse_portable_workspace_install,
+    refuse_live_workspace_catalog,
+    resolve_catalog_path,
 )
 
 
@@ -42,28 +43,37 @@ class TestCatalogPaths(unittest.TestCase):
                 p = default_catalog_path()
         self.assertEqual(p, (Path("/home/user/project") / "steer-catalog").resolve())
 
-    def test_not_implicit_workspace_on_this_host(self) -> None:
-        with patch.dict(os.environ, {}, clear=True):
-            os.environ.pop("STEER_CATALOG", None)
-            p = default_catalog_path()
-        if Path("/workspace/steer-catalog").is_dir():
-            self.assertNotEqual(p, Path("/workspace/steer-catalog").resolve())
+    def test_resolve_follows_symlink(self) -> None:
+        import tempfile
+
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            real = tmp / "real"
+            real.mkdir()
+            link = tmp / "link"
+            link.symlink_to(real, target_is_directory=True)
+            self.assertEqual(resolve_catalog_path(link), real.resolve())
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp, ignore_errors=True)
 
     def test_display_default(self) -> None:
         self.assertEqual(catalog_display_default(), "./steer-catalog")
 
-    def test_refuse_implicit_workspace_install(self) -> None:
-        with self.assertRaises(CatalogRefusalError):
-            refuse_portable_workspace_install(
-                Path("/workspace/steer-catalog"),
-                steer_catalog_env=None,
-            )
+    def test_refuse_live_catalog(self) -> None:
+        import tempfile
 
-    def test_allow_explicit_workspace_env(self) -> None:
-        refuse_portable_workspace_install(
-            Path("/workspace/steer-catalog"),
-            steer_catalog_env="/workspace/steer-catalog",
-        )
+        live = Path(tempfile.mkdtemp())
+        try:
+            os.environ["STEER_LIVE_CATALOG_PATH"] = str(live)
+            with self.assertRaises(CatalogRefusalError):
+                refuse_live_workspace_catalog(live, operation="test")
+        finally:
+            os.environ.pop("STEER_LIVE_CATALOG_PATH", None)
+            import shutil
+
+            shutil.rmtree(live, ignore_errors=True)
 
 
 if __name__ == "__main__":

@@ -2,11 +2,11 @@
 
 This folder is the copy of record. The review loop is the live page, not chat.
 
-On a Grok Bot computer, this directory belongs at `/workspace/steer-catalog`.
+**Grok Bot:** this catalog usually lives at `/workspace/steer-catalog`. First-run uses repo-root `install-desk.sh` or Steer onboarding (release tarball, not git clone).
 
-If that path is missing, first-run installs this folder from `https://github.com/GlobalTC/steer` (see `install-desk.sh` at the repo root, or Steer onboarding). Do not git clone. Do not redesign the page.
+**Portable:** install with `install-catalog.sh` from the skill zip into a path outside `/workspace/steer-catalog`.
 
-Live review (product path): `http://127.0.0.1:8766/steer/`
+Review URL: `http://127.0.0.1:<port><base_path>/` from `steer.json` (defaults `8766` and `/steer/`).
 
 Tutorial (sandbox, does not write the catalog): `http://127.0.0.1:8766/steer/?learn=1` — source `TUTORIAL.md`.
 

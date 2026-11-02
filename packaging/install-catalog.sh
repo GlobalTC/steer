@@ -6,10 +6,26 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 SRC="$ROOT/desk"
 DEST="${STEER_CATALOG:-./steer-catalog}"
 
+if [[ ! -f "$SRC/app/server.py" && -f "$ROOT/../desk/app/server.py" ]]; then
+  SRC="$ROOT/../desk"
+fi
+
 if [[ ! -f "$SRC/app/server.py" ]]; then
   echo "desk/ missing beside install-catalog.sh" >&2
   exit 1
 fi
+
+python3 - "$DEST" "$SRC" <<'PY'
+import sys
+from pathlib import Path
+
+src = Path(sys.argv[2])
+sys.path.insert(0, str(src / "app"))
+from catalog_paths import refuse_live_workspace_catalog, resolve_catalog_path
+
+dest = sys.argv[1]
+refuse_live_workspace_catalog(resolve_catalog_path(dest), operation="install")
+PY
 
 REAL_DEST="$(python3 - "$DEST" <<'PY'
 import os
@@ -17,11 +33,6 @@ import sys
 print(os.path.realpath(sys.argv[1]))
 PY
 )"
-
-if [[ -z "${STEER_CATALOG:-}" && "$REAL_DEST" == "/workspace/steer-catalog" ]]; then
-  echo "Refusing implicit install into /workspace/steer-catalog. Set STEER_CATALOG explicitly or pick another path." >&2
-  exit 1
-fi
 
 mkdir -p "$DEST"
 if [[ ! -d "$DEST" ]]; then
@@ -68,12 +79,13 @@ fi
 read -r DESK_HOST DESK_PORT BASE_PATH <<EOF
 $(python3 - "$DEST" <<'PY'
 import json
+import os
 import sys
 from pathlib import Path
 
 dest = Path(sys.argv[1])
 cfg = json.loads((dest / "steer.json").read_text()) if (dest / "steer.json").is_file() else {}
-port = int(cfg.get("port") or 8766)
+port = int(os.environ.get("STEER_PORT") or cfg.get("port") or 8766)
 host = cfg.get("host") or "127.0.0.1"
 base = cfg.get("base_path") or "/steer"
 base = "/" + base.strip("/") if base.strip("/") else ""

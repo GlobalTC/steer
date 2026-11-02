@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """STEER review server: one codebase, many desks.
 
-Code lives in /workspace/steer/app. A desk (catalog) is only data:
+Code lives in <catalog>/app. A desk (catalog) is only data:
   <catalog>/steer.json   per-desk settings (name, base_path, port, notify targets, ...)
   <catalog>/index.json, assets/, brand/ (logos, tutorial.md, figures/)
   <catalog>/review/      runtime: current.json, saves/, .webhook.env, logs
@@ -33,7 +33,11 @@ APP = Path(__file__).resolve().parent
 if str(APP) not in sys.path:
     sys.path.insert(0, str(APP))
 
-from catalog_paths import default_catalog_path  # noqa: E402
+from catalog_paths import (  # noqa: E402
+    CatalogRefusalError,
+    default_catalog_path,
+    ensure_server_catalog_allowed,
+)
 STATIC = APP / "static"
 VERSION_FILE = APP / "VERSION"
 
@@ -103,7 +107,11 @@ def configure(argv=None) -> None:
     ap.add_argument("--base-path", default=None)
     ap.add_argument("--host", default=None)
     args = ap.parse_args(argv)
-    CATALOG = default_catalog_path(args.catalog)
+    try:
+        CATALOG = ensure_server_catalog_allowed(default_catalog_path(args.catalog))
+    except CatalogRefusalError as exc:
+        sys.stderr.write("%s\n" % exc)
+        raise SystemExit(1) from exc
     cfg = read_json(CATALOG / "steer.json") or {}
     CONFIG = cfg if isinstance(cfg, dict) else {}
     PORT = int(args.port or os.environ.get("STEER_PORT") or CONFIG.get("port") or 8766)
@@ -521,8 +529,8 @@ def client_config() -> dict:
         "version": app_version(),
         "catalog": str(CATALOG),
         "title_fallback": TITLE_FALLBACK,
-        "timezone": CONFIG.get("timezone") or "America/Denver",
-        "tz_label": CONFIG.get("tz_label") or "MT",
+        "timezone": CONFIG.get("timezone"),
+        "tz_label": CONFIG.get("tz_label"),
         "features": CONFIG.get("features") or {"catalog": True, "learn": True},
     }
 

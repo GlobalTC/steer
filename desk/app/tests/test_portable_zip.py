@@ -77,6 +77,7 @@ class TestPortableZip(unittest.TestCase):
             skill = zf.read("SKILL.md").decode("utf-8")
         self.assertIn("install-catalog.sh", install)
         self.assertNotIn("curl", install.lower())
+        self.assertIn("opt-in", install.lower())
         self.assertNotIn("path", index)
         self.assertNotIn("timezone", steer)
         self.assertNotIn("Grok Bot", skill)
@@ -89,7 +90,7 @@ class TestPortableZip(unittest.TestCase):
         text = (ROOT / "skills" / "steer-onboarding" / "SKILL.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("v2026.11.02-1/install-desk.sh", text)
+        self.assertIn("v2026.11.02-2/install-desk.sh", text)
         self.assertIn("app code lives outside the catalog", text)
         self.assertIn("Create a second save-ping on another bot", text)
         self.assertNotIn("GlobalTC/steer/main/install-desk.sh", text)
