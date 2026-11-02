@@ -9,7 +9,7 @@ elif [[ -d /workspace ]]; then
 else
   DEST="./steer-catalog"
 fi
-STEER_TAG="${STEER_TAG:-v2026.10.31-2}"
+STEER_TAG="${STEER_TAG:-v2026.11.02-1}"
 TARBALL="${STEER_TARBALL:-https://github.com/GlobalTC/steer/archive/refs/tags/${STEER_TAG}.tar.gz}"
 
 tmp=$(mktemp -d)
@@ -101,4 +101,5 @@ python3 "$DEST/app/install_port.py" ensure \
   --catalog "$DEST" \
   --host "$DESK_HOST" \
   --port "$DESK_PORT" \
-  --base-path "$BASE_PATH"
+  --base-path "$BASE_PATH" \
+  --restart

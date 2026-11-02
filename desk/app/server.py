@@ -6,7 +6,7 @@ Code lives in /workspace/steer/app. A desk (catalog) is only data:
   <catalog>/index.json, assets/, brand/ (logos, tutorial.md, figures/)
   <catalog>/review/      runtime: current.json, saves/, .webhook.env, logs
 
-Run:  python3 server.py --catalog /workspace/steer-catalog [--port 8766] [--base-path /steer]
+Run:  python3 server.py --catalog ./steer-catalog [--port 8766] [--base-path /steer]
 Env:  STEER_CATALOG, STEER_PORT, STEER_BASE_PATH, STEER_HOST override steer.json.
 """
 
@@ -414,12 +414,22 @@ def deliver(target: dict, payload: dict) -> bool:
     gen = payload.get("generation")
     now = utc_now_iso()
     if not (target["url"] and target["key"]):
-        _webhook_log("WEBHOOK NOT SENT target=%s event=%s generation=%s reason=\"not configured (%s)\""
-                     % (name, event, gen, target["env_path"]))
-        _record(name, ok=False, event=event, generation=gen, at=now, code=0,
-                error="not connected: no webhook URL/key in %s" % target["env_path"].name,
-                configured=False, pending=payload)
-        return False
+        _webhook_log(
+            "save recorded (no webhook) target=%s event=%s generation=%s env=%s"
+            % (name, event, gen, target["env_path"].name)
+        )
+        _record(
+            name,
+            ok=None,
+            event=event,
+            generation=gen,
+            at=now,
+            code=0,
+            error=None,
+            configured=False,
+            pending=None,
+        )
+        return True
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     detail = ""
     code = 0
@@ -469,9 +479,15 @@ def notify_summary() -> dict:
     failing = [
         x["name"]
         for x in targets
-        if x["required"] and x["ok"] is False
+        if x["required"] and x["configured"] and x["ok"] is False
     ]
-    return {"healthy": not failing, "not_notified": failing, "targets": targets}
+    wake = "webhook" if webhook_configured() else "agent"
+    return {
+        "healthy": not failing,
+        "not_notified": failing,
+        "targets": targets,
+        "save_wake_mode": wake,
+    }
 
 
 def doc_snapshot() -> dict:

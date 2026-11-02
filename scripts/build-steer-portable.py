@@ -3,13 +3,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
 import sys
 import zipfile
-from datetime import date
 from pathlib import Path
+from zipfile import ZipInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 CORE = ROOT / "skills" / "_core"
@@ -17,6 +18,7 @@ DESK = ROOT / "desk"
 VERSION_FILE = DESK / "app" / "VERSION"
 DIST = ROOT / "dist"
 PORTABLE_DIR = DIST / "steer-portable"
+FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 
 GROK = {
     "CATALOG": "/workspace/steer-catalog",
@@ -26,12 +28,13 @@ GROK = {
     "DRAFT_REVIEW_REF": "[Steer draft review](sand-workflow:steer-draft-review)",
 }
 
-PORTABLE = {
-    "CATALOG": "${STEER_CATALOG:-./steer-catalog}",
-    "START_CMD": "python3 start.py",
-    "WAIT_SAVE_CMD": "python3 start.py wait-save --timeout 600",
-    "ONBOARDING_REF": "**Steer onboarding** (below)",
-    "DRAFT_REVIEW_REF": "**Steer draft review** (below)",
+DESK_EXCLUDE_PREFIXES = (
+    "app/tests/",
+    "__pycache__/",
+)
+DESK_EXCLUDE_NAMES = {
+    ".webhook.env",
+    ".voice.env",
 }
 
 
@@ -73,7 +76,7 @@ def grok_onboarding() -> str:
     mapping["SAVE_WIRE_SECTION"] = substitute(
         load_core("onboarding-save-wire-grok.md"), GROK
     )
-    body = substitute(load_core("onboarding-body.md"), mapping)
+    body = substitute(load_core("onboarding-body-grok.md"), mapping)
     return (
         "---\n"
         "name: Steer onboarding\n"
@@ -88,19 +91,23 @@ def grok_onboarding() -> str:
 
 
 def portable_skill() -> str:
-    mapping = dict(PORTABLE)
+    mapping = dict(GROK)
     mapping["SAVE_WIRE_SECTION"] = substitute(
-        load_core("onboarding-save-wire-portable.md"), PORTABLE
+        load_core("onboarding-save-wire-portable.md"),
+        {
+            "WAIT_SAVE_CMD": "python3 start.py wait-save --timeout 600",
+            "CATALOG": "${STEER_CATALOG:-./steer-catalog}",
+        },
     )
-    onboarding = substitute(load_core("onboarding-body.md"), mapping)
-    draft = substitute(load_core("draft-review-body.md"), PORTABLE)
+    onboarding = substitute(load_core("onboarding-body-portable.md"), mapping)
+    draft = load_core("draft-review-body-portable.md")
     return (
         "---\n"
         "name: Steer (portable)\n"
         "description: >-\n"
         "  Human-in-the-loop rewrite desk: install the stock page, mark drafts in\n"
         "  Suggesting, Save, apply CriticMarkup in the source voice. Works without\n"
-        "  Grok Bot webhooks (wait-save or user says saved). Ready is not publish.\n"
+        "  outbound webhooks (wait-save or user says saved). Ready is not publish.\n"
         "---\n"
         + onboarding
         + "\n\n---\n\n"
@@ -118,79 +125,109 @@ def write_grok_skills() -> None:
     )
 
 
-SECRET_PATTERNS = [
-    re.compile(r"\.webhook\.env$"),
-    re.compile(r"\.voice\.env$"),
-    re.compile(r"webhook\.env\.example$"),  # allow example
-]
-ALLOW_EXAMPLE = re.compile(r"\.example$")
-RUNTIME_JSON_IN_SAVES = re.compile(r"review/saves/.+\.json$")
-FORBIDDEN_NAMES = {
-    ".webhook.env",
-    ".voice.env",
-    "webhook-state.json",
-}
-FORBIDDEN_SUFFIXES = (".log",)
-RUNTIME_DIRS = {"__pycache__", "webhooks"}
+def iter_desk_allowlist() -> list[Path]:
+    out: list[Path] = []
+    for path in sorted(DESK.rglob("*")):
+        if path.is_dir():
+            continue
+        rel = path.relative_to(DESK).as_posix()
+        if "__pycache__" in path.parts:
+            continue
+        if rel.startswith(DESK_EXCLUDE_PREFIXES):
+            continue
+        if any(part in DESK_EXCLUDE_NAMES for part in path.parts):
+            continue
+        if path.name.endswith(".log"):
+            continue
+        if rel.startswith("review/saves/") and path.name != ".gitkeep":
+            continue
+        out.append(path)
+    return out
 
 
-def desk_zip_member(rel: str) -> bool:
-    parts = Path(rel).parts
-    if parts and parts[0] == "desk":
-        rel = str(Path(*parts[1:])) if len(parts) > 1 else ""
-    if not rel:
-        return True
-    name = Path(rel).name
-    if name in FORBIDDEN_NAMES:
-        return False
-    if name.endswith(FORBIDDEN_SUFFIXES):
-        return False
-    if any(part in RUNTIME_DIRS for part in Path(rel).parts):
-        return False
-    if RUNTIME_JSON_IN_SAVES.match(rel.replace("\\", "/")):
-        return False
-    if name == ".webhook.env" or name == ".voice.env":
-        return False
-    return True
-
-
-def validate_zip_members(names: list[str]) -> list[str]:
-    bad: list[str] = []
-    for n in names:
-        base = Path(n).name
-        if base in FORBIDDEN_NAMES and not ALLOW_EXAMPLE.search(n):
-            bad.append(n)
-        if base.endswith(".log"):
-            bad.append(n)
-        if "/saves/" in n.replace("\\", "/") and n.endswith(".json"):
-            bad.append(n)
-        if n.endswith(".webhook.env") and ".example" not in n:
-            bad.append(n)
-        if n.endswith(".voice.env") and ".example" not in n:
-            bad.append(n)
-    return bad
+def scrub_portable_file(rel: str, data: bytes) -> bytes:
+    if rel == "steer.json":
+        cfg = json.loads(data.decode("utf-8"))
+        cfg.pop("timezone", None)
+        cfg.pop("tz_label", None)
+        notify = cfg.get("notify")
+        if isinstance(notify, list) and notify:
+            for item in notify:
+                if isinstance(item, dict):
+                    item["required"] = False
+                    item["why"] = "optional webhook; agent-wait when unset"
+        return (json.dumps(cfg, indent=2) + "\n").encode("utf-8")
+    if rel == "index.json":
+        idx = json.loads(data.decode("utf-8"))
+        idx.pop("path", None)
+        return (json.dumps(idx, indent=2) + "\n").encode("utf-8")
+    if rel == "README.md":
+        text = data.decode("utf-8")
+        text = re.sub(
+            r"On a Grok Bot computer, this directory belongs at.*\n\n",
+            "",
+            text,
+        )
+        return text.encode("utf-8")
+    if rel == "review/.webhook.env.example":
+        text = data.decode("utf-8")
+        text = text.replace("/workspace/steer-catalog", "./steer-catalog")
+        return text.encode("utf-8")
+    return data
 
 
 def copy_desk_for_zip(dest: Path) -> None:
     desk_dest = dest / "desk"
     if desk_dest.exists():
         shutil.rmtree(desk_dest)
-    shutil.copytree(
-        DESK,
-        desk_dest,
-        ignore=shutil.ignore_patterns(
-            "__pycache__",
-            "*.pyc",
-            "*.pyo",
-            ".webhook.env",
-            ".voice.env",
-            "*.log",
-        ),
-    )
-    saves = dest / "desk" / "review" / "saves"
-    if saves.is_dir():
-        for p in saves.glob("*.json"):
-            p.unlink()
+    desk_dest.mkdir(parents=True)
+    for src in iter_desk_allowlist():
+        rel = src.relative_to(DESK).as_posix()
+        target = desk_dest / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        raw = src.read_bytes()
+        target.write_bytes(scrub_portable_file(rel, raw))
+
+
+def validate_zip_members(names: list[str]) -> list[str]:
+    bad: list[str] = []
+    for n in names:
+        base = Path(n).name
+        if base in (".webhook.env", ".voice.env"):
+            bad.append(n)
+        if base.endswith(".log"):
+            bad.append(n)
+        if "/saves/" in n.replace("\\", "/") and n.endswith(".json"):
+            bad.append(n)
+        if "app/tests/" in n.replace("\\", "/"):
+            bad.append(n)
+    return bad
+
+
+def write_zip(staging: Path, zip_path: Path) -> list[str]:
+    members: list[str] = []
+    if zip_path.is_file():
+        zip_path.unlink()
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted(staging.rglob("*")):
+            if path.is_dir():
+                continue
+            arc = path.relative_to(staging).as_posix()
+            info = ZipInfo(arc)
+            info.date_time = FIXED_ZIP_TIME
+            info.compress_type = zipfile.ZIP_DEFLATED
+            data = path.read_bytes()
+            zf.writestr(info, data)
+            members.append(arc)
+    return members
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def build_zip(version: str) -> Path:
@@ -205,19 +242,11 @@ def build_zip(version: str) -> Path:
         (ROOT / "packaging" / "INSTALL.md").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
+    shutil.copy2(ROOT / "packaging" / "install-catalog.sh", staging / "install-catalog.sh")
     copy_desk_for_zip(staging)
     zip_name = "steer-skill-portable-%s.zip" % version
     zip_path = DIST / zip_name
-    if zip_path.is_file():
-        zip_path.unlink()
-    members: list[str] = []
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for path in sorted(staging.rglob("*")):
-            if path.is_dir():
-                continue
-            arc = path.relative_to(staging).as_posix()
-            members.append(arc)
-            zf.write(path, arc)
+    members = write_zip(staging, zip_path)
     bad = validate_zip_members(members)
     if bad:
         raise SystemExit("zip contains forbidden paths: %s" % ", ".join(bad))
@@ -228,7 +257,12 @@ def main() -> int:
     write_grok_skills()
     version = read_version()
     zip_path = build_zip(version)
-    print(json.dumps({"ok": True, "version": version, "zip": str(zip_path)}))
+    digest = sha256_file(zip_path)
+    print(
+        json.dumps(
+            {"ok": True, "version": version, "zip": str(zip_path), "sha256": digest}
+        )
+    )
     return 0
 
 

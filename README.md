@@ -12,9 +12,9 @@ This is the STEER solution: the review desk, the server, and the Grok Bot recipe
 
 The same repo powers a **portable agent skill** (Claude Code, Codex, Cursor, or any host that reads `SKILL.md`). One codebase — no fork.
 
-1. Build or download `steer-skill-portable-<version>.zip` from [`scripts/build-steer-portable.py`](scripts/build-steer-portable.py) (`python3 scripts/build-steer-portable.py` writes `dist/steer-skill-portable-*.zip`).
-2. Install the skill (`SKILL.md`) and catalog per [`packaging/INSTALL.md`](packaging/INSTALL.md).
-3. Catalog path defaults to `./steer-catalog` (override with `STEER_CATALOG`). On Grok Bot computers with `/workspace`, the default stays `/workspace/steer-catalog`.
+1. Build or download `steer-skill-portable-<version>.zip` via `python3 scripts/build-steer-portable.py` (writes `dist/steer-skill-portable-*.zip`, reproducible sha256).
+2. Install the skill (`SKILL.md`) and run `bash install-catalog.sh` from the unzipped package (bundled `desk/`, no network). See [`packaging/INSTALL.md`](packaging/INSTALL.md).
+3. Catalog path defaults to `./steer-catalog` (override with `STEER_CATALOG`). Portable installs refuse implicit `/workspace/steer-catalog` unless `STEER_CATALOG` is set explicitly. Grok Bot `install-desk.sh` still defaults there when `/workspace` exists.
 4. Start the desk: `python3 start.py` inside the catalog.
 5. **No webhook required.** After Save, either the user says "saved" and the agent reads `review/saves/latest.json` against `processed.json`, or the agent runs a blocking wait:
 

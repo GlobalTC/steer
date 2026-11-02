@@ -80,6 +80,33 @@ class TestInstallPort(unittest.TestCase):
             shutil.rmtree(cat_a, ignore_errors=True)
             shutil.rmtree(cat_b, ignore_errors=True)
 
+    def test_ensure_desk_same_catalog_without_restart(self) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="steer-same-cat-"))
+        try:
+            _minimal_catalog(tmp)
+            steer_server.configure(["--catalog", str(tmp)])
+            httpd = steer_server.ThreadedHTTPServer(
+                ("127.0.0.1", 0), steer_server.Handler
+            )
+            port = httpd.server_address[1]
+            thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            thread.start()
+            try:
+                code, msg = install_port.ensure_desk(
+                    tmp, "127.0.0.1", port, "/steer", restart=False
+                )
+                self.assertEqual(code, 0)
+                self.assertIn("/steer", msg)
+                self.assertTrue(
+                    install_port.page_responds("127.0.0.1", port, "/steer")
+                )
+            finally:
+                httpd.shutdown()
+                httpd.server_close()
+                thread.join(timeout=5)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
     def test_catalogs_match_resolves_symlinks(self) -> None:
         tmp = Path(tempfile.mkdtemp(prefix="steer-symlink-"))
         try:

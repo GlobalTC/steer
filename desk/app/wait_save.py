@@ -42,14 +42,10 @@ def wait_for_save(
     poll_interval: float = 0.25,
 ) -> dict | None:
     deadline = time.monotonic() + timeout
-    last_mtime = 0.0
-    latest_path = catalog / "review" / "saves" / "latest.json"
     while time.monotonic() < deadline:
         found = unprocessed_save(catalog)
         if found is not None:
             return found
-        if latest_path.is_file():
-            last_mtime = max(last_mtime, latest_path.stat().st_mtime)
         time.sleep(poll_interval)
     return None
 
@@ -59,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument(
         "--catalog",
         default=None,
-        help="Catalog directory (default: STEER_CATALOG, start.py folder, or ./steer-catalog)",
+        help="Catalog directory (default: this start.py folder, not STEER_CATALOG)",
     )
     ap.add_argument(
         "--timeout",
@@ -79,7 +75,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None, *, start_py_dir: Path | None = None) -> int:
     ap = build_parser()
     args = ap.parse_args(argv)
-    catalog = default_catalog_path(args.catalog, start_py_dir=start_py_dir)
+    catalog = default_catalog_path(
+        args.catalog,
+        start_py_dir=start_py_dir,
+        honor_env=args.catalog is not None,
+    )
     if not catalog.is_dir():
         print(
             json.dumps({"ok": False, "error": "catalog missing", "catalog": str(catalog)}),

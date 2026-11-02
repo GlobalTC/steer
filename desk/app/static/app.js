@@ -51,8 +51,8 @@
     var out = [];
     n.targets.forEach(function (t) {
       if (!t.required) return;
-      if (!t.configured) out.push({ name: t.name, why: "not connected" + (t.why ? " (" + t.why + ")" : "") });
-      else if (t.ok === false) out.push({ name: t.name, why: t.error || "delivery failed" });
+      if (!t.configured) return;
+      if (t.ok === false) out.push({ name: t.name, why: t.error || "delivery failed" });
     });
     return out;
   }

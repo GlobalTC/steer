@@ -1,31 +1,31 @@
 # Install STEER (portable skill)
 
-1. Unzip this package anywhere you keep agent skills.
-2. Copy `SKILL.md` into your agent's skills folder (Cursor: `.cursor/skills/` or the path your host documents). Keep `desk/` beside it or set `STEER_CATALOG` to where you install the catalog.
-3. Install the catalog (data + server):
+1. Unzip the package to a directory you control.
+2. Copy `SKILL.md` into your agent's skills folder.
+3. Choose a catalog path (default `./steer-catalog`):
 
    ```bash
-   export STEER_CATALOG="${STEER_CATALOG:-./steer-catalog}"
-   cp -R desk "$STEER_CATALOG"
-   # or from the product repo:
-   curl -fsSL https://raw.githubusercontent.com/GlobalTC/steer/main/install-desk.sh | bash
+   export STEER_CATALOG="${STEER_CATALOG:-$PWD/steer-catalog}"
    ```
 
-4. Start the review page:
+4. Install from the bundled desk (no network):
 
    ```bash
-   cd "$STEER_CATALOG"
-   python3 start.py
+   bash install-catalog.sh
    ```
 
-5. Open `http://127.0.0.1:8766/steer/` (port and path from `steer.json`).
+   The script copies `desk/` into `STEER_CATALOG` and starts the review server only if that catalog is not already listening. It refuses to install into `/workspace/steer-catalog` unless you set `STEER_CATALOG` explicitly.
 
-No webhook is required. After Save, the agent reads `review/saves/latest.json` vs `processed.json`, or runs:
+5. Open the review URL from `steer.json` (default `http://127.0.0.1:8766/steer/`). Change port in `steer.json` or with `STEER_PORT`.
+
+## Save without a webhook
+
+After Save, the agent reads `review/saves/latest.json` vs `processed.json`, or runs from the catalog directory:
 
 ```bash
 python3 start.py wait-save --timeout 600
 ```
 
-Optional voice LLM: set `XAI_API_KEY` or copy `review/.voice.env.example` to `review/.voice.env`.
+Optional voice LLM: `XAI_API_KEY` or `review/.voice.env` from the example file.
 
-License: MIT — see `LICENSE`.
+MIT License — see `LICENSE`.

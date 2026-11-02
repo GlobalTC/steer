@@ -164,7 +164,12 @@ def wait_for_desk(
 
 
 def ensure_desk(
-    catalog: Path, host: str, port: int, base_path: str
+    catalog: Path,
+    host: str,
+    port: int,
+    base_path: str,
+    *,
+    restart: bool = False,
 ) -> tuple[int, str]:
     """Return (exit_code, message). 0 = url printed on stdout path via message."""
     dest = catalog.resolve()
@@ -186,6 +191,8 @@ def ensure_desk(
                 "Change port in steer.json or stop the other desk."
                 % (port, listener, dest),
             )
+        if not restart:
+            return (0, page)
         if not stop_desk_on_port(port):
             return (
                 1,
@@ -219,6 +226,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, required=True)
     ap.add_argument("--base-path", default="/steer")
+    ap.add_argument(
+        "--restart",
+        action="store_true",
+        help="When the same catalog is already listening, stop and restart it",
+    )
     args = ap.parse_args(argv)
 
     if args.command == "listener-catalog":
@@ -228,7 +240,13 @@ def main(argv: list[str] | None = None) -> int:
         print(cat)
         return 0
 
-    code, msg = ensure_desk(args.catalog, args.host, args.port, args.base_path)
+    code, msg = ensure_desk(
+        args.catalog,
+        args.host,
+        args.port,
+        args.base_path,
+        restart=args.restart,
+    )
     if code == 0:
         print(msg)
         return 0
