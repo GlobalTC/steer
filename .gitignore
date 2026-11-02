@@ -3,6 +3,7 @@ desk/review/.webhook.env
 desk/review/.voice.env
 # Save records are local runtime, not product source.
 desk/review/saves/*.json
+dist/
 __pycache__/
 *.pyc
 *.pyo

@@ -32,13 +32,15 @@ import argparse
 APP = Path(__file__).resolve().parent
 if str(APP) not in sys.path:
     sys.path.insert(0, str(APP))
+
+from catalog_paths import default_catalog_path  # noqa: E402
 STATIC = APP / "static"
 VERSION_FILE = APP / "VERSION"
 
 # Defaults reproduce the live STEER desk. configure() overrides them at start.
 HOST = "127.0.0.1"
 PORT = 8766
-CATALOG = Path("/workspace/steer-catalog")
+CATALOG = default_catalog_path()
 CONFIG: dict = {}
 
 
@@ -101,7 +103,7 @@ def configure(argv=None) -> None:
     ap.add_argument("--base-path", default=None)
     ap.add_argument("--host", default=None)
     args = ap.parse_args(argv)
-    CATALOG = Path(args.catalog or "/workspace/steer-catalog").resolve()
+    CATALOG = default_catalog_path(args.catalog)
     cfg = read_json(CATALOG / "steer.json") or {}
     CONFIG = cfg if isinstance(cfg, dict) else {}
     PORT = int(args.port or os.environ.get("STEER_PORT") or CONFIG.get("port") or 8766)

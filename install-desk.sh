@@ -2,7 +2,13 @@
 # Install or upgrade the STEER desk onto a Grok Bot computer.
 set -euo pipefail
 
-DEST="${STEER_CATALOG:-/workspace/steer-catalog}"
+if [[ -n "${STEER_CATALOG:-}" ]]; then
+  DEST="$STEER_CATALOG"
+elif [[ -d /workspace ]]; then
+  DEST="/workspace/steer-catalog"
+else
+  DEST="./steer-catalog"
+fi
 STEER_TAG="${STEER_TAG:-v2026.10.31-2}"
 TARBALL="${STEER_TARBALL:-https://github.com/GlobalTC/steer/archive/refs/tags/${STEER_TAG}.tar.gz}"
 

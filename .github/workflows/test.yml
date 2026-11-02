@@ -1,0 +1,19 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Regenerate skills and portable zip
+        run: python3 scripts/build-steer-portable.py
+      - name: Unit tests
+        run: python3 -m unittest discover -s desk/app/tests -p 'test_*.py'

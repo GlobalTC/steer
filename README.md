@@ -8,6 +8,24 @@
 
 This is the STEER solution: the review desk, the server, and the Grok Bot recipe that runs the rewrite loop. The thing in the video. Not a prompt with no page.
 
+## Use STEER outside Grok Bot
+
+The same repo powers a **portable agent skill** (Claude Code, Codex, Cursor, or any host that reads `SKILL.md`). One codebase — no fork.
+
+1. Build or download `steer-skill-portable-<version>.zip` from [`scripts/build-steer-portable.py`](scripts/build-steer-portable.py) (`python3 scripts/build-steer-portable.py` writes `dist/steer-skill-portable-*.zip`).
+2. Install the skill (`SKILL.md`) and catalog per [`packaging/INSTALL.md`](packaging/INSTALL.md).
+3. Catalog path defaults to `./steer-catalog` (override with `STEER_CATALOG`). On Grok Bot computers with `/workspace`, the default stays `/workspace/steer-catalog`.
+4. Start the desk: `python3 start.py` inside the catalog.
+5. **No webhook required.** After Save, either the user says "saved" and the agent reads `review/saves/latest.json` against `processed.json`, or the agent runs a blocking wait:
+
+   ```bash
+   python3 start.py wait-save --timeout 600
+   ```
+
+Optional `review/.webhook.env` still works unchanged for Grok Bot (Save POSTs the same as today). Voice LLM markup needs the user's own xAI or other host key (`XAI_API_KEY`, `review/.voice.env`).
+
+Shared skill text lives in [`skills/_core/`](skills/_core/); Grok Bot skills are generated from that source by the build script.
+
 ## Grok Bot template
 
 Import STEER as a Grok Bot. On first conversation the bot runs Steer onboarding:
