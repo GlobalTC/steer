@@ -58,7 +58,6 @@ class TestLiveCatalogGuard(unittest.TestCase):
         self._tmp = Path(tempfile.mkdtemp(prefix="steer-live-guard-"))
         self.live = self._tmp / "live-catalog"
         self.live.mkdir()
-        self._workspace_targets: list[Path] = []
         for key in _INHERITED_BYPASS_ENV:
             os.environ.pop(key, None)
         os.environ.pop("STEER_CATALOG", None)
@@ -67,17 +66,12 @@ class TestLiveCatalogGuard(unittest.TestCase):
         for key in _INHERITED_BYPASS_ENV:
             os.environ.pop(key, None)
         os.environ.pop("STEER_CATALOG", None)
-        for p in self._workspace_targets:
-            shutil.rmtree(p, ignore_errors=True)
         shutil.rmtree(self._tmp, ignore_errors=True)
 
-    def _workspace_target(self, suffix: str) -> Path:
-        catalog_paths.WORKSPACE_STEER_CATALOG.mkdir(parents=True, exist_ok=True)
-        name = "qa-guard-%s-%s" % (suffix, uuid.uuid4().hex[:8])
-        path = catalog_paths.WORKSPACE_STEER_CATALOG / name
-        path.mkdir(parents=True, exist_ok=True)
-        self._workspace_targets.append(path)
-        return path
+    def _workspace_subpath(self, suffix: str) -> Path:
+        return catalog_paths.WORKSPACE_STEER_CATALOG / (
+            "qa-guard-%s-%s" % (suffix, uuid.uuid4().hex[:8])
+        )
 
     def _install_env(self, catalog: str, *, extra: dict | None = None) -> dict:
         env = {k: v for k, v in os.environ.items() if k != "STEER_CATALOG"}
@@ -104,7 +98,6 @@ class TestLiveCatalogGuard(unittest.TestCase):
 
     def test_install_catalog_script_refuses_live(self) -> None:
         script = ROOT / "packaging" / "install-catalog.sh"
-        catalog_paths.WORKSPACE_STEER_CATALOG.mkdir(parents=True, exist_ok=True)
         proc = subprocess.run(
             ["bash", str(script)],
             cwd=str(ROOT / "packaging"),
@@ -116,7 +109,7 @@ class TestLiveCatalogGuard(unittest.TestCase):
         self.assertIn("Refusing", proc.stderr + proc.stdout)
 
     def test_install_catalog_script_refuses_subdirectory_of_live(self) -> None:
-        sub = self._workspace_target("sub")
+        sub = self._workspace_subpath("sub")
         script = ROOT / "packaging" / "install-catalog.sh"
         proc = subprocess.run(
             ["bash", str(script)],
@@ -130,7 +123,7 @@ class TestLiveCatalogGuard(unittest.TestCase):
         self.assertFalse((sub / "app").exists())
 
     def test_refuse_subdirectory_of_live_install(self) -> None:
-        sub = self._workspace_target("nested")
+        sub = self._workspace_subpath("nested")
         with self.assertRaises(catalog_paths.CatalogRefusalError):
             catalog_paths.refuse_live_workspace_catalog(sub, operation="install")
 
@@ -157,7 +150,7 @@ class TestLiveCatalogGuard(unittest.TestCase):
 
     def test_inherited_bypass_env_cannot_install_into_live(self) -> None:
         script = ROOT / "packaging" / "install-catalog.sh"
-        sub = self._workspace_target("inherit-install")
+        sub = self._workspace_subpath("inherit-install")
         proc = subprocess.run(
             ["bash", str(script)],
             cwd=str(ROOT / "packaging"),
@@ -171,7 +164,6 @@ class TestLiveCatalogGuard(unittest.TestCase):
 
     def test_inherited_bypass_env_cannot_install_into_live_root(self) -> None:
         script = ROOT / "packaging" / "install-catalog.sh"
-        catalog_paths.WORKSPACE_STEER_CATALOG.mkdir(parents=True, exist_ok=True)
         proc = subprocess.run(
             ["bash", str(script)],
             cwd=str(ROOT / "packaging"),
@@ -186,7 +178,6 @@ class TestLiveCatalogGuard(unittest.TestCase):
         self.assertFalse((catalog_paths.WORKSPACE_STEER_CATALOG / "app").exists())
 
     def test_server_implicit_cwd_refuses_live(self) -> None:
-        catalog_paths.WORKSPACE_STEER_CATALOG.mkdir(parents=True, exist_ok=True)
         ws = self._tmp / "workspace"
         ws.mkdir()
         (ws / "steer-catalog").symlink_to(
@@ -204,7 +195,6 @@ class TestLiveCatalogGuard(unittest.TestCase):
             os.chdir(prev)
 
     def test_inherited_allow_does_not_bypass_implicit_server(self) -> None:
-        catalog_paths.WORKSPACE_STEER_CATALOG.mkdir(parents=True, exist_ok=True)
         ws = self._tmp / "workspace2"
         ws.mkdir()
         (ws / "steer-catalog").symlink_to(
@@ -220,8 +210,7 @@ class TestLiveCatalogGuard(unittest.TestCase):
             os.chdir(prev)
 
     def test_inherited_bypass_env_cannot_serve_live_implicitly(self) -> None:
-        catalog_paths.WORKSPACE_STEER_CATALOG.mkdir(parents=True, exist_ok=True)
-        sub = self._workspace_target("inherit-serve")
+        sub = self._workspace_subpath("inherit-serve")
         prev = os.getcwd()
         try:
             os.chdir(self._tmp)
