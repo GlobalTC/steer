@@ -9,7 +9,7 @@ elif [[ -d /workspace ]]; then
 else
   DEST="./steer-catalog"
 fi
-STEER_TAG="${STEER_TAG:-v2026.11.02-2}"
+STEER_TAG="${STEER_TAG:-v2026.11.02-3}"
 TARBALL="${STEER_TARBALL:-https://github.com/GlobalTC/steer/archive/refs/tags/${STEER_TAG}.tar.gz}"
 
 tmp=$(mktemp -d)
@@ -96,11 +96,6 @@ print(host, port, base, sep="\t")
 PY
 )
 EOF
-
-REAL_DEST="$(python3 -c "import os; print(os.path.realpath('$DEST'))")"
-if [[ "$REAL_DEST" == "/workspace/steer-catalog" ]]; then
-  export STEER_ALLOW_LIVE_CATALOG=1
-fi
 
 python3 "$DEST/app/install_port.py" ensure \
   --catalog "$DEST" \

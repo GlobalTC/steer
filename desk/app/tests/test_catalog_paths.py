@@ -59,17 +59,19 @@ class TestCatalogPaths(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_display_default(self) -> None:
-        self.assertEqual(catalog_display_default(), "./steer-catalog")
+        self.assertEqual(catalog_display_default(), "<package>/steer-catalog")
 
     def test_refuse_live_catalog(self) -> None:
         import tempfile
 
         live = Path(tempfile.mkdtemp())
         try:
+            os.environ["STEER_TESTING"] = "1"
             os.environ["STEER_LIVE_CATALOG_PATH"] = str(live)
             with self.assertRaises(CatalogRefusalError):
                 refuse_live_workspace_catalog(live, operation="test")
         finally:
+            os.environ.pop("STEER_TESTING", None)
             os.environ.pop("STEER_LIVE_CATALOG_PATH", None)
             import shutil
 

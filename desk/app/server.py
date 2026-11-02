@@ -35,8 +35,9 @@ if str(APP) not in sys.path:
 
 from catalog_paths import (  # noqa: E402
     CatalogRefusalError,
-    default_catalog_path,
-    ensure_server_catalog_allowed,
+    catalog_flag_passed_on_cli,
+    refuse_implicit_live_server_catalog,
+    resolve_catalog_path,
 )
 STATIC = APP / "static"
 VERSION_FILE = APP / "VERSION"
@@ -44,7 +45,7 @@ VERSION_FILE = APP / "VERSION"
 # Defaults reproduce the live STEER desk. configure() overrides them at start.
 HOST = "127.0.0.1"
 PORT = 8766
-CATALOG = default_catalog_path()
+CATALOG = Path("./steer-catalog").resolve()
 CONFIG: dict = {}
 
 
@@ -102,13 +103,24 @@ def configure(argv=None) -> None:
     global HOST, PORT, CATALOG, CONFIG, BASE_PATH, TITLE_FALLBACK, DEFAULT_ASSET, DESK_NAME
     global APP_VERSION
     ap = argparse.ArgumentParser(description="STEER review server")
-    ap.add_argument("--catalog", default=os.environ.get("STEER_CATALOG"))
+    ap.add_argument("--catalog", default=None)
     ap.add_argument("--port", type=int, default=None)
     ap.add_argument("--base-path", default=None)
     ap.add_argument("--host", default=None)
     args = ap.parse_args(argv)
+    cli_argv = list(argv) if argv is not None else sys.argv[1:]
+    cli_catalog = catalog_flag_passed_on_cli(cli_argv)
     try:
-        CATALOG = ensure_server_catalog_allowed(default_catalog_path(args.catalog))
+        if cli_catalog and args.catalog:
+            CATALOG = resolve_catalog_path(args.catalog)
+        elif args.catalog:
+            CATALOG = refuse_implicit_live_server_catalog(args.catalog)
+        elif os.environ.get("STEER_CATALOG"):
+            CATALOG = refuse_implicit_live_server_catalog(os.environ["STEER_CATALOG"])
+        else:
+            CATALOG = refuse_implicit_live_server_catalog(
+                Path.cwd() / "steer-catalog"
+            )
     except CatalogRefusalError as exc:
         sys.stderr.write("%s\n" % exc)
         raise SystemExit(1) from exc

@@ -8,11 +8,15 @@ Run when the catalog is missing, `app/server.py` is missing, or the review URL f
 
 Stay in the **unzipped package folder** (where `install-catalog.sh` and `desk/` live). Do not install into your agent's shared skills tree unless you deliberately copy `SKILL.md` there as a separate opt-in step.
 
-Pick a catalog path outside `/workspace/steer-catalog`, then run:
+Run install (default catalog `<package>/steer-catalog` beside `install-catalog.sh`):
 
-    STEER_CATALOG="$PWD/catalog" bash install-catalog.sh
+    bash install-catalog.sh
 
-If you omit `STEER_CATALOG`, the catalog is `./steer-catalog` beside the script. Any path that resolves to `/workspace/steer-catalog` is refused.
+Or set another path outside `/workspace/steer-catalog`:
+
+    STEER_CATALOG="$HOME/steer-catalog" bash install-catalog.sh
+
+Any resolved path under the live `/workspace/steer-catalog` is refused.
 
 Do not `curl | bash` from the network for portable installs.
 

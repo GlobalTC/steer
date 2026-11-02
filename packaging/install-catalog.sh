@@ -2,9 +2,11 @@
 # Install STEER catalog from the bundled desk/ next to this script (portable zip).
 set -euo pipefail
 
+unset STEER_ALLOW_LIVE_CATALOG
+
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SRC="$ROOT/desk"
-DEST="${STEER_CATALOG:-./steer-catalog}"
+DEST="${STEER_CATALOG:-$ROOT/steer-catalog}"
 
 if [[ ! -f "$SRC/app/server.py" && -f "$ROOT/../desk/app/server.py" ]]; then
   SRC="$ROOT/../desk"
@@ -75,6 +77,20 @@ if src_cfg:
     dest_cfg_path.write_text(json.dumps(dest_cfg, indent=2) + "\n")
 PY
 fi
+
+python3 - "$DEST" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+dest = Path(sys.argv[1])
+dest_cfg_path = dest / "steer.json"
+dest_cfg = json.loads(dest_cfg_path.read_text()) if dest_cfg_path.is_file() else {}
+if os.environ.get("STEER_PORT"):
+    dest_cfg["port"] = int(os.environ["STEER_PORT"])
+    dest_cfg_path.write_text(json.dumps(dest_cfg, indent=2) + "\n")
+PY
 
 read -r DESK_HOST DESK_PORT BASE_PATH <<EOF
 $(python3 - "$DEST" <<'PY'

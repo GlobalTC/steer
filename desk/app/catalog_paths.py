@@ -8,15 +8,16 @@ from pathlib import Path
 WORKSPACE_STEER_CATALOG = Path("/workspace/steer-catalog")
 
 
-def live_catalog_path() -> Path:
-    override = os.environ.get("STEER_LIVE_CATALOG_PATH")
-    if override:
-        return Path(override).expanduser().resolve()
-    return WORKSPACE_STEER_CATALOG
-
-
 class CatalogRefusalError(ValueError):
     """Portable paths must not touch the live workspace catalog."""
+
+
+def live_catalog_path() -> Path:
+    if os.environ.get("STEER_TESTING") == "1":
+        override = os.environ.get("STEER_LIVE_CATALOG_PATH")
+        if override:
+            return Path(override).expanduser().resolve()
+    return WORKSPACE_STEER_CATALOG
 
 
 def resolve_catalog_path(raw: str | Path) -> Path:
@@ -42,8 +43,13 @@ def default_catalog_path(
     return resolve_catalog_path(Path.cwd() / "steer-catalog")
 
 
+def package_catalog_default(package_root: Path) -> Path:
+    """Default catalog beside a portable package (install-catalog.sh location)."""
+    return resolve_catalog_path(package_root / "steer-catalog")
+
+
 def catalog_display_default() -> str:
-    return "./steer-catalog"
+    return "<package>/steer-catalog"
 
 
 def is_live_workspace_catalog(catalog: Path) -> bool:
@@ -54,28 +60,32 @@ def is_live_workspace_catalog(catalog: Path) -> bool:
 
 
 def refuse_live_workspace_catalog(catalog: Path, *, operation: str) -> None:
-    """Always block portable installs and accidental binds to the live Grok catalog."""
+    """Block portable installs that resolve to the live Grok catalog."""
     if is_live_workspace_catalog(catalog):
         raise CatalogRefusalError(
-            "Refusing %s into the live catalog %s. Pick another directory "
-            "(or use Grok Bot install-desk.sh on that host)."
+            "Refusing %s into the live catalog %s. Pick another directory."
             % (operation, live_catalog_path())
         )
 
 
-def ensure_server_catalog_allowed(catalog: Path) -> Path:
-    """Server may use the live catalog only when the host explicitly allows it."""
+def refuse_implicit_live_server_catalog(catalog: Path) -> Path:
+    """Refuse only implicit server resolution that lands on the live catalog."""
     resolved = resolve_catalog_path(catalog)
-    if is_live_workspace_catalog(resolved) and os.environ.get("STEER_ALLOW_LIVE_CATALOG") != "1":
+    if is_live_workspace_catalog(resolved):
         raise CatalogRefusalError(
-            "Refusing to serve the live catalog %s. Start via that catalog's start.py "
-            "or set STEER_ALLOW_LIVE_CATALOG=1 for Grok Bot install-desk.sh."
+            "Refusing to serve the live catalog %s without an explicit --catalog flag. "
+            "Pick another directory."
             % live_catalog_path()
         )
     return resolved
 
 
-def live_catalog_allowed_for_start_py(catalog_dir: Path) -> None:
-    """start.py from the live catalog may launch the server there."""
-    if is_live_workspace_catalog(catalog_dir):
-        os.environ["STEER_ALLOW_LIVE_CATALOG"] = "1"
+def catalog_flag_passed_on_cli(argv: list[str] | None) -> bool:
+    if not argv:
+        return False
+    for i, arg in enumerate(argv):
+        if arg == "--catalog":
+            return True
+        if arg.startswith("--catalog="):
+            return True
+    return False

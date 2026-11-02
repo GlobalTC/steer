@@ -90,7 +90,7 @@ class TestPortableZip(unittest.TestCase):
         text = (ROOT / "skills" / "steer-onboarding" / "SKILL.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("v2026.11.02-2/install-desk.sh", text)
+        self.assertIn("v2026.11.02-3/install-desk.sh", text)
         self.assertIn("app code lives outside the catalog", text)
         self.assertIn("Create a second save-ping on another bot", text)
         self.assertNotIn("GlobalTC/steer/main/install-desk.sh", text)
