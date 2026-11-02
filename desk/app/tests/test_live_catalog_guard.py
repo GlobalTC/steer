@@ -89,7 +89,12 @@ class TestLiveCatalogGuard(unittest.TestCase):
     def test_install_catalog_honors_steer_port(self) -> None:
         catalog = self._tmp / "port-catalog"
         script = ROOT / "packaging" / "install-catalog.sh"
-        port = 9876
+        import socket
+
+        sock = socket.socket()
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+        sock.close()
         proc = subprocess.run(
             ["bash", str(script)],
             cwd=str(ROOT / "packaging"),
